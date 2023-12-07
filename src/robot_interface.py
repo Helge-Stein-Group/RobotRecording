@@ -23,6 +23,7 @@ class RobotInterface:
             move_port: int = 30003,
             feed_port: int = 30004,
             number_of_joints: int = 4,
+            print_function: callable = print
     ):
         self.dashboard = None
         self.move = None
@@ -38,6 +39,8 @@ class RobotInterface:
         self.number_of_joints = number_of_joints
 
         self.start_angles = np.array([0, 0, 220, 0])
+
+        self.print_function = print_function
 
         self.connect_robot()
         self.init_robot()
@@ -61,9 +64,14 @@ class RobotInterface:
         
         self.log_robot(f"Angles {self.angles}")
         self.move.MovJ(*self.start_angles)
+    
+    def close_robot(self):
+        self.dashboard.close()
+        self.move.close()
+        self.feed.close()
 
     def log_robot(self, msg: str):
-        print(f"[ROBOT][{self.identifier}] {msg}")
+        self.print_function(f"[ROBOT][{self.identifier}] {msg}")
 
     
     def nonblocking_move(self, func, *params) -> bool:

@@ -55,7 +55,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.right_joystick_joint = right_joystick_joint
         self.joint_bounds = joint_bounds
         self.save_path = save_path
-        self.verbose = verbose
+        
 
         self.memory = []
         if return_to_start:
@@ -70,6 +70,41 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         self.mode = MemoryType.POINT
         self.running = False
+
+        self.verbose = verbose
+        self.display = None
+        self.feed_log = []
+        self.print_function = self.feed_log.append
+        if self.verbose:
+            self.initialize_display()
+    
+    def initialize_display(self):
+        self.display = curses.initscr()  # Initialize curses
+        curses.noecho()  # Turn off automatic echoing of keys to the screen
+        curses.cbreak()  # React to keys instantly, without requiring the Enter key
+        self.display.keypad(True)  # Interpret special keys like Backspace, Delete, and the four arrow keys
+    
+    def display_status(self):
+        self.display.clear()  # Clear the screen
+        lines = [
+            "Pose: [" + ", ".join("{:.2f}".format(p) for p in self.pose) + "]",
+            "Angles: [" + ", ".join("{:.2f}".format(a) for a in self.angles) + "]",
+            "Return Pose: \n" + str(self.memory[-1]) if self.return_to_start else "\n",
+            "Memory: \n",
+            *[f"[{entry.type.name}][{entry.coordinate_system.name}] {entry.value}" for entry in self.memory],
+            "Feed: \n",
+            *self.feed_log
+
+        ]
+        for i, line in enumerate(lines):
+            self.display.addstr(i, 0, line)
+        self.display.refresh()  # Refresh the screen
+    
+    def close_display(self):
+        curses.echo()
+        curses.nocbreak()
+        self.display.keypad(False)
+        curses.endwin()  # Restore the terminal to its original operating mode
 
     def save(self, value, mode, coordinate_system):
         entry = MemoryEntry(mode, value, coordinate_system)
@@ -92,12 +127,15 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
     def default_keymap(self):
         def save_func(state):
             if state:
-                self.save(self.angles, MemoryType.POINT, CoordinateSystem.JOINT)
+                self.save(self.pose, MemoryType.POINT, CoordinateSystem.WORLD)
+                                    
 
         def mode_func(state):
             if state:
                 if self.mode == MemoryType.POINT:
                     self.mode = MemoryType.MOVEMENT
+                    # QOL
+                    self.save(self.pose, MemoryType.POINT, CoordinateSystem.WORLD)
                 else:
                     self.mode = MemoryType.POINT
                 self.indicate_mode()
@@ -141,7 +179,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                 if state:
                     result = self.nonblocking_move(self.move.RelMovL, *movement)
                     if self.mode == MemoryType.MOVEMENT and result:
-                        self.save(movement, self.mode, CoordinateSystem.WORLD)
+                        self.save(movement, MemoryType.MOVEMENT, CoordinateSystem.WORLD)
 
             return linear_move_func
 
@@ -165,11 +203,11 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
     def dump_memory(self):
         with open(self.save_path, "w") as f:
             json.dump([entry.serialize() for entry in self.memory], f, indent=4)
-            print(f"Saved memory to {self.save_path}")
+            self.feed_log.append(f"Saved memory to {self.save_path}")
 
     def start(self):
         self.running = True
-        print("Ready")
+        self.feed_log.append("Ready")
         super().start()
 
     def stop(self):
@@ -178,10 +216,10 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         self.dump_memory()
 
-        self.dashboard.close()
-        self.move.close()
-        self.feed.close()
+        self.close_robot()
         self.controller.close()
+        if self.verbose:
+            self.close_display()
         time.sleep(1)
 
     def bound_movement(self, movement: list):
@@ -206,43 +244,23 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             self.move.RelMovJ(*bounded_movement)
             self.move.Sync()
             if self.mode == MemoryType.MOVEMENT:
-                self.save(bounded_movement, self.mode, CoordinateSystem.JOINT)
+                self.save(bounded_movement, MemoryType.MOVEMENT, CoordinateSystem.JOINT)
 
 
     def run(self):
-        if self.verbose:
-            stdscr = curses.initscr()  # Initialize curses
-            curses.noecho()  # Turn off automatic echoing of keys to the screen
-            curses.cbreak()  # React to keys instantly, without requiring the Enter key
-            stdscr.keypad(True)  # Interpret special keys like Backspace, Delete, and the four arrow keys
-
-        try:
-            while self.running:
-                if self.verbose:
-                    stdscr.clear()  # Clear the screen
-                    stdscr.addstr(0, 0, "Pose: [" + ", ".join("{:.2f}".format(p) for p in self.pose) + "]")
-                    stdscr.addstr(1, 0, "Angles: [" + ", ".join("{:.2f}".format(a) for a in self.angles) + "]")
-                    if self.return_to_start:
-                        stdscr.addstr(2, 0, "Return Pose: \n" + str(self.memory[-1]))
-
-                    stdscr.addstr(3, 0, "Memory: \n")
-                    for i, entry in enumerate(self.memory):
-                        stdscr.addstr(4 + i, 0, f"[{entry.type.name}][{entry.coordinate_system.name}] {entry.value}")
-                    stdscr.refresh()  # Refresh the screen
-                for _ in range(10):
-                    self.move_robot()
-        finally:
+        while self.running:
             if self.verbose:
-                curses.echo()
-                curses.nocbreak()
-                stdscr.keypad(False)
-                curses.endwin()  # Restore the terminal to its original operating mode
+                self.display_status()
+            for _ in range(10):
+                self.move_robot()
+
+                
 
 
 if __name__ == "__main__":
     import keyboard
 
-    recorder = RobotRecorder(verbose=False)
+    recorder = RobotRecorder(verbose=True)
     recorder.start()
 
     print("Press the spacebar to stop the recorder...")
