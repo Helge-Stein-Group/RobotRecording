@@ -33,7 +33,7 @@ class RobotPlayer(RobotInterface):
 if __name__ == "__main__":
     import keyboard
  
-    player = RobotPlayer(optimize_movements=True   )
+    player = RobotPlayer(optimize_movements=False)
     player.read_memory("memory.json") 
     print("Read memory:")
     player.print_memory()  

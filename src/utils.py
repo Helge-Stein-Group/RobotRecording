@@ -23,7 +23,7 @@ class MemoryEntry:
     def serialize(self):
         return {
             "type": self.type.name,
-            "value": list(self.value),
+            "value": [float(el) for el in list(self.value)],
             "coordinate_system": self.coordinate_system.name,
         }
 

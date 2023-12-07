@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import json
 
 import numpy as np
 
@@ -9,8 +10,6 @@ from dobot_api import (
     DobotApiDashboard,
     DobotApi,
     DobotApiMove,
-    MyType,
-    alarmAlarmJsonFile,
 )
 
 from utils import MemoryType, CoordinateSystem
@@ -34,8 +33,11 @@ class RobotInterface:
         self.dashboard_port = dashboard_port
         self.move_port = move_port
         self.feed_port = feed_port
+        self.error_translation = json.load(open("./data/translation.json", "r"))
 
         self.number_of_joints = number_of_joints
+
+        self.start_angles = np.array([0, 0, 220, 0])
 
         self.connect_robot()
         self.init_robot()
@@ -56,9 +58,22 @@ class RobotInterface:
         time.sleep(0.5)
         self.dashboard.EnableRobot()
         self.dashboard.SpeedJ(100)
+        
+        self.log_robot(f"Angles {self.angles}")
+        self.move.MovJ(*self.start_angles)
 
     def log_robot(self, msg: str):
         print(f"[ROBOT][{self.identifier}] {msg}")
+
+    
+    def nonblocking_move(self, func, *params) -> bool:
+        func(*params)
+        if self.error_id:
+            self.log_robot(f"Invalid movement [{self.error_id}]")
+            self.dashboard.ClearError()
+            self.dashboard.EnableRobot()
+            return False
+        return True
 
     @property
     def pose(self):
@@ -78,6 +93,18 @@ class RobotInterface:
         angles = np.fromstring(result[result.find("{") + 1: result.find("}")], sep=",")
         return angles[:self.number_of_joints]
 
+    @property
+    def error_id(self):
+        result = self.dashboard.GetErrorID()
+        string = result[result.find("{") + 1: result.find("}")]
+        data = json.loads(string)
+        
+        error_ids = [self.error_translation[str(item)] if item else 0 for sublist in data for item in sublist]
+        if len(error_ids) > 0:
+            error_ids = error_ids[0]
+        return error_ids
+
+    
     def replay(self, memory, optimize_movements: bool = False):
         self.log_robot("Replaying")
         if optimize_movements:
@@ -85,17 +112,22 @@ class RobotInterface:
         for entry in memory:
             if entry.type == MemoryType.POINT:
                 if entry.coordinate_system == CoordinateSystem.WORLD:
-                    self.move.MovL(*entry.value)
+                    func = self.move.MovL
                 elif entry.coordinate_system == CoordinateSystem.JOINT:
-                    self.move.MovJ(*entry.value)
+                    func = self.move.MovJ
             elif entry.type == MemoryType.MOVEMENT:
                 if entry.coordinate_system == CoordinateSystem.WORLD:
-                    self.move.RelMovL(*entry.value)
+                    func = self.move.RelMovL
                 elif entry.coordinate_system == CoordinateSystem.JOINT:
-                    self.move.RelMovJ(*entry.value)
+                    func = self.move.RelMovJ
+
+            result = self.nonblocking_move(func, *entry.value)
+            if not result:
+                self.log_robot(f"Error replaying from {self.pose if entry.coordinate_system == CoordinateSystem.WORLD else self.angles} ")
             self.move.Sync()
     
     def optimize_movement(self, memory):
+        # TODO dont want to do this always (only for same axes e.g.)
         optimized_memory = []
         for entry in memory:
             if entry.type == MemoryType.MOVEMENT and optimized_memory[-1].type == MemoryType.MOVEMENT and entry.coordinate_system == optimized_memory[-1].coordinate_system:
