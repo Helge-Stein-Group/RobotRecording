@@ -1,0 +1,3 @@
+numpy~=1.26.2
+pydualsense~=0.7.0
+keyboard~=0.13.5
