@@ -9,22 +9,22 @@ class MemoryType(Enum):
     MOVEMENT = 1
 
 
-class CoordinateSystem(Enum):
+class MotionType(Enum):
     JOINT = 0
-    WORLD = 1
+    LINEAR = 1
 
 
 @dataclass
 class MemoryEntry:
-    type: MemoryType
-    value: np.ndarray
-    coordinate_system: CoordinateSystem
+    type: MemoryType                        
+    value: np.ndarray                       # [x, y, z, r] for POINTS, [j1, j2, j3, j4] for MOVEMENTS
+    motion_type: MotionType
 
     def serialize(self):
         return {
             "type": self.type.name,
             "value": [float(el) for el in list(self.value)],
-            "coordinate_system": self.coordinate_system.name,
+            "motion_type": self.motion_type.name,
         }
 
     @staticmethod
@@ -32,7 +32,7 @@ class MemoryEntry:
         return MemoryEntry(
             MemoryType[entry["type"]],
             np.array(entry["value"]),
-            CoordinateSystem[entry["coordinate_system"]],
+            MotionType[entry["motion_type"]],
         )
 
 

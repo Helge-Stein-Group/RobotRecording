@@ -12,7 +12,7 @@ from dobot_api import (
     DobotApiMove,
 )
 
-from utils import MemoryType, CoordinateSystem
+from utils import MemoryType, MotionType
 
 
 class RobotInterface:
@@ -119,26 +119,27 @@ class RobotInterface:
             memory = self.optimize_movement(memory)
         for entry in memory:
             if entry.type == MemoryType.POINT:
-                if entry.coordinate_system == CoordinateSystem.WORLD:
+                if entry.motion_type == MotionType.LINEAR:
                     func = self.move.MovL
-                elif entry.coordinate_system == CoordinateSystem.JOINT:
+                elif entry.motion_type == MotionType.JOINT:
                     func = self.move.MovJ
             elif entry.type == MemoryType.MOVEMENT:
-                if entry.coordinate_system == CoordinateSystem.WORLD:
+                if entry.motion_type == MotionType.LINEAR:
                     func = self.move.RelMovL
-                elif entry.coordinate_system == CoordinateSystem.JOINT:
+                elif entry.motion_type == MotionType.JOINT:
                     func = self.move.RelMovJ
 
             result = self.nonblocking_move(func, *entry.value)
             if not result:
-                self.log_robot(f"Error replaying from {self.pose if entry.coordinate_system == CoordinateSystem.WORLD else self.angles} ")
+                self.log_robot(f"Error replaying from {self.pose if entry.motion_type == MemoryType.POINT else self.angles} ")
+                self.log_robot(f"Error replaying to {entry.value}")
             self.move.Sync()
     
     def optimize_movement(self, memory):
         # TODO dont want to do this always (only for same axes e.g.)
         optimized_memory = []
         for entry in memory:
-            if entry.type == MemoryType.MOVEMENT and optimized_memory[-1].type == MemoryType.MOVEMENT and entry.coordinate_system == optimized_memory[-1].coordinate_system:
+            if entry.type == MemoryType.MOVEMENT and optimized_memory[-1].type == MemoryType.MOVEMENT and entry.motion_type == optimized_memory[-1].motion_type:
                 optimized_memory[-1].value += entry.value
             else:
                 optimized_memory.append(entry)

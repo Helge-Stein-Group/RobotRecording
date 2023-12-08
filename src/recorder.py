@@ -59,7 +59,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         self.memory = []
         if return_to_start:
-            entry = MemoryEntry(MemoryType.POINT, self.start_angles, CoordinateSystem.JOINT)
+            entry = MemoryEntry(MemoryType.POINT, self.start_angles, MotionType.JOINT)
             self.memory.append(entry)
             self.memory.append(entry)
 
@@ -79,10 +79,10 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             self.initialize_display()
     
     def initialize_display(self):
-        self.display = curses.initscr()  # Initialize curses
-        curses.noecho()  # Turn off automatic echoing of keys to the screen
-        curses.cbreak()  # React to keys instantly, without requiring the Enter key
-        self.display.keypad(True)  # Interpret special keys like Backspace, Delete, and the four arrow keys
+        curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        self.display = curses.newpad(1000, 100)
     
     def display_status(self):
         self.display.clear()  # Clear the screen
@@ -91,23 +91,23 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             "Angles: [" + ", ".join("{:.2f}".format(a) for a in self.angles) + "]",
             "Return Pose: \n" + str(self.memory[-1]) if self.return_to_start else "\n",
             "Memory: \n",
-            *[f"[{entry.type.name}][{entry.coordinate_system.name}] {entry.value}" for entry in self.memory],
+            *[f"[{entry.type.name}][{entry.motion_type.name}] {entry.value}" for entry in self.memory],
             "Feed: \n",
             *self.feed_log
 
         ]
         for i, line in enumerate(lines):
             self.display.addstr(i, 0, line)
-        self.display.refresh()  # Refresh the screen
+        self.display.refresh(0,0, 0,0, 20,60)  # Display the pad. The parameters are (pad_min_row, pad_min_col, screen_min_row, screen_min_col, screen_max_row, screen_max_col)
+
     
     def close_display(self):
         curses.echo()
         curses.nocbreak()
-        self.display.keypad(False)
-        curses.endwin()  # Restore the terminal to its original operating mode
+        curses.endwin()
 
-    def save(self, value, mode, coordinate_system):
-        entry = MemoryEntry(mode, value, coordinate_system)
+    def save(self, memory_type, value, motion_type):
+        entry = MemoryEntry(memory_type, value, motion_type)
         if self.return_to_start:
             self.memory.insert(-1, entry)
         else:
@@ -127,7 +127,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
     def default_keymap(self):
         def save_func(state):
             if state:
-                self.save(self.pose, MemoryType.POINT, CoordinateSystem.WORLD)
+                self.save(MemoryType.POINT, self.pose, MotionType.JOINT)
                                     
 
         def mode_func(state):
@@ -135,7 +135,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                 if self.mode == MemoryType.POINT:
                     self.mode = MemoryType.MOVEMENT
                     # QOL
-                    self.save(self.pose, MemoryType.POINT, CoordinateSystem.WORLD)
+                    self.save(MemoryType.POINT, self.pose, MotionType.JOINT)
                 else:
                     self.mode = MemoryType.POINT
                 self.indicate_mode()
@@ -179,7 +179,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                 if state:
                     result = self.nonblocking_move(self.move.RelMovL, *movement)
                     if self.mode == MemoryType.MOVEMENT and result:
-                        self.save(movement, MemoryType.MOVEMENT, CoordinateSystem.WORLD)
+                        self.save(MemoryType.MOVEMENT, movement, MotionType.LINEAR)
 
             return linear_move_func
 
@@ -244,7 +244,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             self.move.RelMovJ(*bounded_movement)
             self.move.Sync()
             if self.mode == MemoryType.MOVEMENT:
-                self.save(bounded_movement, MemoryType.MOVEMENT, CoordinateSystem.JOINT)
+                self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
 
 
     def run(self):

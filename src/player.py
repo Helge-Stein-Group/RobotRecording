@@ -27,7 +27,7 @@ class RobotPlayer(RobotInterface):
         super().replay(self.memory[indices], self.optimize_movements)
  
     def print_memory(self):  
-        print("Memory: \n" + "\n".join(f"[{entry.type.name}][{entry.coordinate_system.name}] {entry.value}" for entry in self.memory))
+        print("Memory: \n" + "\n".join(f"[{entry.type.name}][{entry.motion_type.name}] {entry.value}" for entry in self.memory))
 
 
 if __name__ == "__main__":
