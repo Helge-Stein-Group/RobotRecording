@@ -1,45 +1,56 @@
 import colorsys
-import operator
-import os
-import time
-import threading
 import json
-import numpy as np
-import pydualsense
-import curses
+import operator
+import threading
+import time
 
-
-from robot_interface import RobotInterface
 from controller_interface import ControllerInterface
+from robot_interface import RobotInterface
 from utils import *
+from display_interface import DisplayInterface
 
 
 class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
     def __init__(
-            self,
-            robot_ip: str = "192.168.1.6",
-            dashboard_port: int = 29999,
-            move_port: int = 30003,
-            feed_port: int = 30004,
-            number_of_joints: int = 4,
-            return_to_start: bool = True,
-            max_speed: np.ndarray = np.array([5, 5, 5, 15]),
-            linear_speed: float = 5,
-            keymap: Keymap = None,
-            left_joystick_joint: int = 0,
-            right_joystick_joint: int = 1,
-            joint_bounds: np.ndarray = np.array([
-                [-80, 80],
-                [-125, 125],
-                [80, 245],
-                [-355, 355]
-            ]),
-            save_path: str = "memory.json",
-            verbose: bool = True
+        self,
+        robot_ip: str = "192.168.1.6",
+        dashboard_port: int = 29999,
+        move_port: int = 30003,
+        feed_port: int = 30004,
+        number_of_joints: int = 4,
+        return_to_start: bool = True,
+        max_speed: np.ndarray = np.array([5, 5, 5, 15]),
+        linear_speed: float = 5,
+        keymap: Keymap = None,
+        left_joystick_joint: int = 0,
+        right_joystick_joint: int = 1,
+        joint_bounds: np.ndarray = np.array(
+            [[-80, 80], [-125, 125], [80, 245], [-355, 355]]
+        ),
+        save_path: str = "memory.json",
     ):
+        self.robot_ip = robot_ip
+        self.dashboard_port = dashboard_port
+        self.move_port = move_port
+        self.feed_port = feed_port
+        self.number_of_joints = number_of_joints
+
+        self.feed_log = []
+        self.memory = []
+        self.display_pose = [0, 0, 0, 0]
+        self.display_angles = [0, 0, 0, 0]
         threading.Thread.__init__(self)
-        RobotInterface.__init__(self, robot_ip, dashboard_port, move_port, feed_port, number_of_joints)
-        ControllerInterface.__init__(self, keymap)
+        self.init_robot_connection()
+        ControllerInterface.__init__(self, keymap, self.add_feed)
+        self.display_interface = DisplayInterface(
+            lambda: self.display_pose,
+            lambda: self.display_angles,
+            lambda: self.memory,
+            lambda: self.feed_log,
+            self.clear_error,
+            self.dump_memory,
+            self.stop,
+        )
 
         self.current_joint_pos = 0
         self.current_joint_neg = 0
@@ -55,56 +66,34 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.right_joystick_joint = right_joystick_joint
         self.joint_bounds = joint_bounds
         self.save_path = save_path
-        
 
-        self.memory = []
+        self.active_joint = number_of_joints // 2
+
+        self.mode = MemoryType.POINT
+        self.running = False
+
         if return_to_start:
             entry = MemoryEntry(MemoryType.POINT, self.start_angles, MotionType.JOINT)
             self.memory.append(entry)
             self.memory.append(entry)
 
-        self.active_joint = number_of_joints // 2
         self.indicate_active_joint()
 
         self.set_controls()
 
-        self.mode = MemoryType.POINT
-        self.running = False
+    def init_robot_connection(self):
+        RobotInterface.__init__(
+            self,
+            self.robot_ip,
+            self.dashboard_port,
+            self.move_port,
+            self.feed_port,
+            self.number_of_joints,
+            self.add_feed,
+        )
 
-        self.verbose = verbose
-        self.display = None
-        self.feed_log = []
-        self.print_function = self.feed_log.append
-        if self.verbose:
-            self.initialize_display()
-    
-    def initialize_display(self):
-        curses.initscr()
-        curses.noecho()
-        curses.cbreak()
-        self.display = curses.newpad(1000, 100)
-    
-    def display_status(self):
-        self.display.clear()  # Clear the screen
-        lines = [
-            "Pose: [" + ", ".join("{:.2f}".format(p) for p in self.pose) + "]",
-            "Angles: [" + ", ".join("{:.2f}".format(a) for a in self.angles) + "]",
-            "Return Pose: \n" + str(self.memory[-1]) if self.return_to_start else "\n",
-            "Memory: \n",
-            *[f"[{entry.type.name}][{entry.motion_type.name}] {entry.value}" for entry in self.memory],
-            "Feed: \n",
-            *self.feed_log
-
-        ]
-        for i, line in enumerate(lines):
-            self.display.addstr(i, 0, line)
-        self.display.refresh(0,0, 0,0, 20,60)  # Display the pad. The parameters are (pad_min_row, pad_min_col, screen_min_row, screen_min_col, screen_max_row, screen_max_col)
-
-    
-    def close_display(self):
-        curses.echo()
-        curses.nocbreak()
-        curses.endwin()
+    def add_feed(self, msg: str, source: str):
+        self.feed_log.append(FeedEntry(datetime.now(), msg, source))
 
     def save(self, memory_type, value, motion_type):
         entry = MemoryEntry(memory_type, value, motion_type)
@@ -114,10 +103,15 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             self.memory.append(entry)
 
     def indicate_active_joint(self):
-        color = np.array(colorsys.hsv_to_rgb(self.active_joint / self.number_of_joints, 1, 1)) * 255
+        color = (
+            np.array(
+                colorsys.hsv_to_rgb(self.active_joint / self.number_of_joints, 1, 1)
+            )
+            * 255
+        )
         color = [int(c) for c in color]
         self.controller.light.setColorI(*color)
-    
+
     def indicate_mode(self):
         if self.mode == MemoryType.POINT:
             self.controller.audio.setMicrophoneLED(False)
@@ -128,7 +122,6 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         def save_func(state):
             if state:
                 self.save(MemoryType.POINT, self.pose, MotionType.JOINT)
-                                    
 
         def mode_func(state):
             if state:
@@ -203,14 +196,16 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
     def dump_memory(self):
         with open(self.save_path, "w") as f:
             json.dump([entry.serialize() for entry in self.memory], f, indent=4)
-            self.feed_log.append(f"Saved memory to {self.save_path}")
+            self.add_feed(f"Dumped memory to {self.save_path}", "Recorder")
 
     def start(self):
         self.running = True
-        self.feed_log.append("Ready")
+        self.add_feed("Started recording", "Recorder")
         super().start()
+        self.display_interface.start()
 
     def stop(self):
+        self.add_feed("Shutting down", "Recorder")
         self.running = False
         self.join()
 
@@ -218,15 +213,15 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         self.close_robot()
         self.controller.close()
-        if self.verbose:
-            self.close_display()
         time.sleep(1)
 
     def bound_movement(self, movement: list):
         current_angles = self.angles
         if np.any(self.angles):
             attempted_angles = current_angles + movement
-            attempted_angles = np.clip(attempted_angles, self.joint_bounds[:, 0], self.joint_bounds[:, 1])
+            attempted_angles = np.clip(
+                attempted_angles, self.joint_bounds[:, 0], self.joint_bounds[:, 1]
+            )
             return attempted_angles - current_angles
         else:
             raise Exception("No angles available")
@@ -235,36 +230,41 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         current_joint = self.current_joint_pos - self.current_joint_neg
         movement = [0] * self.number_of_joints
         movement[self.active_joint] = current_joint * self.max_speed[self.active_joint]
-        movement[self.left_joystick_joint] += self.left_joystick * self.max_speed[self.left_joystick_joint]
-        movement[self.right_joystick_joint] += self.right_joystick * self.max_speed[self.right_joystick_joint]
+        movement[self.left_joystick_joint] += (
+            self.left_joystick * self.max_speed[self.left_joystick_joint]
+        )
+        movement[self.right_joystick_joint] += (
+            self.right_joystick * self.max_speed[self.right_joystick_joint]
+        )
 
         bounded_movement = self.bound_movement(movement)
         bounded_movement = np.where(np.abs(bounded_movement) < 0.5, 0, bounded_movement)
         if np.any(bounded_movement):
-            self.move.RelMovJ(*bounded_movement)
-            self.move.Sync()
-            if self.mode == MemoryType.MOVEMENT:
-                self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
-
+            try:
+                self.move.RelMovJ(*bounded_movement)
+                self.move.Sync()
+                if self.mode == MemoryType.MOVEMENT:
+                    self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
+            except ConnectionAbortedError:
+                self.add_feed("Robot connection aborted", "Recorder")
+                self.init_robot_connection()
 
     def run(self):
         while self.running:
-            if self.verbose:
-                self.display_status()
             for _ in range(10):
                 self.move_robot()
-
-                
+            self.display_pose = self.pose
+            self.display_angles = self.angles
 
 
 if __name__ == "__main__":
-    import keyboard
-
-    recorder = RobotRecorder(verbose=True)
+    recorder = RobotRecorder()
     recorder.start()
 
-    print("Press the spacebar to stop the recorder...")
-    keyboard.wait('space')
+    import keyboard
 
-    recorder.stop()
-      
+    while True:
+        if keyboard.is_pressed("q"):
+            recorder.stop()
+            break
+        time.sleep(0.1)

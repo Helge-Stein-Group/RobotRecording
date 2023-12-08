@@ -1,5 +1,6 @@
-from enum import Enum
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 
 import numpy as np
 
@@ -16,23 +17,45 @@ class MotionType(Enum):
 
 @dataclass
 class MemoryEntry:
-    type: MemoryType                        
-    value: np.ndarray                       # [x, y, z, r] for POINTS, [j1, j2, j3, j4] for MOVEMENTS
+    type: MemoryType
+    value: np.ndarray  # [x, y, z, r] for POINTS, [j1, j2, j3, j4] for MOVEMENTS
     motion_type: MotionType
 
     def serialize(self):
         return {
-            "type": self.type.name,
-            "value": [float(el) for el in list(self.value)],
-            "motion_type": self.motion_type.name,
+            "Type": self.type.name,
+            "Value": [float(el) for el in list(self.value)],
+            "Motion Type": self.motion_type.name,
         }
 
     @staticmethod
     def from_dict(entry: dict):
         return MemoryEntry(
-            MemoryType[entry["type"]],
-            np.array(entry["value"]),
-            MotionType[entry["motion_type"]],
+            MemoryType[entry["Type"]],
+            np.array(entry["Value"]),
+            MotionType[entry["Motion Type"]],
+        )
+
+
+@dataclass
+class FeedEntry:
+    timestamp: datetime
+    message: str
+    source: str
+
+    def serialize(self):
+        return {
+            "Timestamp": self.timestamp.strftime("%H:%M:%ST%d.%m.%Y"),
+            "Message": self.message,
+            "Source": self.source,
+        }
+
+    @staticmethod
+    def from_dict(entry: dict):
+        return FeedEntry(
+            datetime.strptime(entry["Timestamp"], "%H:%M:%ST%d.%m.%Y"),
+            entry["Message"],
+            entry["Source"],
         )
 
 

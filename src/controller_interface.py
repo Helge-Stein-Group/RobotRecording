@@ -1,22 +1,23 @@
-import pydualsense
-import time
 import colorsys
-import numpy as np
+import time
 
+import numpy as np
+import pydualsense
 
 from utils import Keymap
 
 
 class ControllerInterface:
-    def __init__(self, keymap: Keymap):
+    def __init__(self, keymap: Keymap, print_function: callable = print):
         self.controller = None
         self.serial_number = None
         self.keymap = keymap
+        self.print_function = print_function
 
         self.connect_controller()
 
     def log_controller(self, msg: str):
-        print(f"[CONTROLLER][{self.serial_number}] {msg}")
+        self.print_function(msg, f"Controller {self.serial_number}")
 
     def connect_controller(self):
         self.controller = pydualsense.pydualsense()
