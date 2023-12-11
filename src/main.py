@@ -9,7 +9,7 @@ if __name__ == "__main__":
     shutdown_event = Event()
 
     dashboard = Dashboard(
-        lambda: recorder.current_pose,  # lambda is necessary to update adress of variable
+        lambda: recorder.current_pose,  # lambda is necessary to update address of variable
         lambda: recorder.current_angles,
         lambda: recorder.memory,
         lambda: recorder.feed_log,

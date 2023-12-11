@@ -320,7 +320,7 @@ class Dashboard:
         def bundle_callback(n_clicks):
             if n_clicks is not None:
                 self.func_bundle()
-                data = [el.serialize() for el in self.get_memory]
+                data = [el.serialize() for el in self.get_memory()]
                 for el in data:
                     el["Value"] = str(el["Value"])
                 return data

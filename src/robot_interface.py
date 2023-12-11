@@ -60,8 +60,14 @@ class RobotInterface:
         self.dashboard.EnableRobot()
         self.dashboard.SpeedJ(100)
 
-        self.log_robot(f"Angles {self.angles}")
         self.move.MovJ(*self.start_angles)
+
+    def reconnect(self):
+        self.log_robot("Connection lost")
+        self.log_robot("Trying to reconnect")
+        self.close_robot()
+        self.connect_robot()
+        self.init_robot()
 
     def close_robot(self):
         self.dashboard.close()
@@ -90,33 +96,61 @@ class RobotInterface:
         """
         return pose in [x, y, z, r] format
         """
-        result = self.dashboard.GetPose()
-        pose = np.fromstring(result[result.find("{") + 1 : result.find("}")], sep=",")
-        return pose[: self.number_of_joints]
+        try:
+            result = self.dashboard.GetPose()
+
+            pose = np.fromstring(
+                result[result.find("{") + 1 : result.find("}")], sep=","
+            )
+            return pose[: self.number_of_joints]
+        except Exception as e:
+            self.log_robot(f"Error getting pose {e}")
+            self.reconnect()
 
     @property
     def angles(self):
         """
         return angles in [j1, j2, j3, j4] format
         """
-        result = self.dashboard.GetAngle()
-        angles = np.fromstring(result[result.find("{") + 1 : result.find("}")], sep=",")
-        return angles[: self.number_of_joints]
+        try:
+            result = self.dashboard.GetAngle()
+            angles = np.fromstring(
+                result[result.find("{") + 1 : result.find("}")], sep=","
+            )[: self.number_of_joints]
+            if angles.size:
+                return angles
+            else:
+                raise Exception("No angles available")
+        except Exception as e:
+            self.log_robot(f"Error getting angles {e}")
+            self.reconnect()
 
     @property
     def error_id(self):
-        result = self.dashboard.GetErrorID()
-        string = result[result.find("{") + 1 : result.find("}")]
-        data = json.loads(string)
+        try:
+            result = self.dashboard.GetErrorID()
 
-        error_ids = [
-            self.error_translation[str(item)] if item else 0
-            for sublist in data
-            for item in sublist
-        ]
-        if len(error_ids) > 0:
-            error_ids = error_ids[0]
-        return error_ids
+            string = result[result.find("{") + 1 : result.find("}")]
+            data = json.loads(string)
+            error_ids = [
+                str(item) if int(item) >= 0 else 0
+                for sublist in data
+                for item in sublist
+            ]
+            translations = []
+            for error_id in error_ids:
+                if error_id in self.error_translation:
+                    translations.append(self.error_translation[error_id])
+                else:
+                    translations.append(f"Unknown error {error_id}")
+
+            if len(translations) > 0:
+                translations = translations[0]
+            return translations
+        except Exception as e:
+            print(e)
+            self.log_robot(f"Error getting error id {e}")
+            self.reconnect()
 
     def replay(self, memory):
         self.log_robot("Replaying")
@@ -138,5 +172,6 @@ class RobotInterface:
                     f"Error replaying from {self.pose if entry.motion_type == MemoryType.POINT else self.angles} "
                 )
                 self.log_robot(f"Error replaying to {entry.value}")
+                break
             self.move.Sync()
         self.log_robot("Done Replaying")

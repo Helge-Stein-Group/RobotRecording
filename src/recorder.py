@@ -24,7 +24,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         left_joystick_joint: int = 0,
         right_joystick_joint: int = 1,
         joint_bounds: np.ndarray = np.array(
-            [[-80, 80], [-125, 125], [80, 245], [-355, 355]]
+            [[-80, 80], [-125, 125], [85, 245], [-355, 355]]
         ),
         save_path: str = "memory.json",
     ):
@@ -82,6 +82,12 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             self.number_of_joints,
             self.add_feed,
         )
+
+    def reconnect(self):
+        super().reconnect()
+        self.default_keymap()
+        ControllerInterface.__init__(self, self.keymap, self.add_feed)
+        self.set_controls()
 
     def add_feed(self, msg: str, source: str):
         self.feed_log.append(FeedEntry(datetime.now(), msg, source))
@@ -205,7 +211,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
     def bound_movement(self, movement: list):
         current_angles = self.angles
-        if np.any(self.angles):
+        if current_angles.size:
             attempted_angles = current_angles + movement
             attempted_angles = np.clip(
                 attempted_angles, self.joint_bounds[:, 0], self.joint_bounds[:, 1]
@@ -231,7 +237,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             try:
                 self.move.RelMovJ(*bounded_movement)
                 self.move.Sync()
-                if self.mode == MemoryType.MOVEMENT:
+                if self.mode == MemoryType.MOVEMENT and np.sum(movement) > 0:
                     self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
             except ConnectionAbortedError:
                 self.add_feed("Robot connection aborted", "Recorder")
@@ -246,7 +252,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                 and optimized_memory[-1].type == MemoryType.MOVEMENT
                 and optimized_memory[-1].motion_type == MotionType.LINEAR
                 and np.array_equal(
-                    np.nonzero(entry.value), np.nonzero(optimized_memory[-1].value)
+                    np.sign(entry.value), np.sign(optimized_memory[-1].value)
                 )
             ):
                 optimized_memory[-1].value = np.array(
