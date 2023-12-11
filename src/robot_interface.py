@@ -72,16 +72,16 @@ class RobotInterface:
         self.print_function(msg, f"Robot {self.identifier}")
 
     def clear_error(self):
-        self.log_robot(self.error_id)
+        self.log_robot("Clearing error (" + str(self.error_id) + ")")
         self.dashboard.ClearError()
+        time.sleep(0.5)
         self.dashboard.EnableRobot()
 
     def nonblocking_move(self, func, *params) -> bool:
         func(*params)
         if self.error_id:
             self.log_robot(f"Invalid movement [{self.error_id}]")
-            self.dashboard.ClearError()
-            self.dashboard.EnableRobot()
+            self.clear_error()
             return False
         return True
 
@@ -118,10 +118,8 @@ class RobotInterface:
             error_ids = error_ids[0]
         return error_ids
 
-    def replay(self, memory, optimize_movements: bool = False):
+    def replay(self, memory):
         self.log_robot("Replaying")
-        if optimize_movements:
-            memory = self.optimize_memory(memory)
         for entry in memory:
             if entry.type == MemoryType.POINT:
                 if entry.motion_type == MotionType.LINEAR:
@@ -141,17 +139,4 @@ class RobotInterface:
                 )
                 self.log_robot(f"Error replaying to {entry.value}")
             self.move.Sync()
-
-    def optimize_memory(self, memory):
-        # TODO dont want to do this always (only for same axes e.g.)
-        optimized_memory = []
-        for entry in memory:
-            if (
-                entry.type == MemoryType.MOVEMENT
-                and optimized_memory[-1].type == MemoryType.MOVEMENT
-                and entry.motion_type == optimized_memory[-1].motion_type
-            ):
-                optimized_memory[-1].value += entry.value
-            else:
-                optimized_memory.append(entry)
-        return optimized_memory
+        self.log_robot("Done Replaying")

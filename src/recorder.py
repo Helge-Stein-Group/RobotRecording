@@ -7,7 +7,6 @@ import time
 from controller_interface import ControllerInterface
 from robot_interface import RobotInterface
 from utils import *
-from display_interface import DisplayInterface
 
 
 class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
@@ -18,7 +17,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         move_port: int = 30003,
         feed_port: int = 30004,
         number_of_joints: int = 4,
-        return_to_start: bool = True,
+        autosave_start: bool = True,
         max_speed: np.ndarray = np.array([5, 5, 5, 15]),
         linear_speed: float = 5,
         keymap: Keymap = None,
@@ -37,31 +36,17 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         self.feed_log = []
         self.memory = []
-        self.display_pose = [0, 0, 0, 0]
-        self.display_angles = [0, 0, 0, 0]
-        threading.Thread.__init__(self)
-        self.init_robot_connection()
-        ControllerInterface.__init__(self, keymap, self.add_feed)
-        self.display_interface = DisplayInterface(
-            lambda: self.display_pose,
-            lambda: self.display_angles,
-            lambda: self.memory,
-            lambda: self.feed_log,
-            self.clear_error,
-            self.dump_memory,
-            self.stop,
-        )
+        self.current_pose = np.array([0, 0, 0, 0])
+        self.current_angles = np.array([0, 0, 0, 0])
 
         self.current_joint_pos = 0
         self.current_joint_neg = 0
         self.left_joystick = 0
         self.right_joystick = 0
 
-        self.return_to_start = return_to_start
+        self.autosave_start = autosave_start
         self.max_speed = max_speed
         self.linear_speed = linear_speed
-        if self.keymap is None:
-            self.default_keymap()
         self.left_joystick_joint = left_joystick_joint
         self.right_joystick_joint = right_joystick_joint
         self.joint_bounds = joint_bounds
@@ -72,14 +57,20 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.mode = MemoryType.POINT
         self.running = False
 
-        if return_to_start:
-            entry = MemoryEntry(MemoryType.POINT, self.start_angles, MotionType.JOINT)
-            self.memory.append(entry)
-            self.memory.append(entry)
+        self.init_robot_connection()
+        ControllerInterface.__init__(self, keymap, self.add_feed)
+        threading.Thread.__init__(self)
 
-        self.indicate_active_joint()
+        if self.keymap is None:
+            self.default_keymap()
+
+        if autosave_start:
+            self.memory.append(
+                MemoryEntry(MemoryType.POINT, self.start_angles, MotionType.JOINT)
+            )
 
         self.set_controls()
+        self.indicate_active_joint()
 
     def init_robot_connection(self):
         RobotInterface.__init__(
@@ -97,9 +88,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
     def save(self, memory_type, value, motion_type):
         entry = MemoryEntry(memory_type, value, motion_type)
-        if self.return_to_start:
-            self.memory.insert(-1, entry)
-        else:
+        if self.autosave_start:
             self.memory.append(entry)
 
     def indicate_active_joint(self):
@@ -135,7 +124,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         def delete_func(state):
             if state and self.memory:
-                del self.memory[-2 if self.return_to_start else -1]
+                del self.memory[-1]
 
         def replay_func(state):
             if state:
@@ -202,7 +191,6 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.running = True
         self.add_feed("Started recording", "Recorder")
         super().start()
-        self.display_interface.start()
 
     def stop(self):
         self.add_feed("Shutting down", "Recorder")
@@ -249,12 +237,31 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                 self.add_feed("Robot connection aborted", "Recorder")
                 self.init_robot_connection()
 
+    def optimize_linear_movement(self):
+        optimized_memory = []
+        for entry in self.memory:
+            if (
+                entry.type == MemoryType.MOVEMENT
+                and entry.motion_type == MotionType.LINEAR
+                and optimized_memory[-1].type == MemoryType.MOVEMENT
+                and optimized_memory[-1].motion_type == MotionType.LINEAR
+                and np.array_equal(
+                    np.nonzero(entry.value), np.nonzero(optimized_memory[-1].value)
+                )
+            ):
+                optimized_memory[-1].value = np.array(
+                    optimized_memory[-1].value
+                ) + np.array(entry.value)
+            else:
+                optimized_memory.append(entry)
+        self.memory = optimized_memory
+
     def run(self):
         while self.running:
             for _ in range(10):
                 self.move_robot()
-            self.display_pose = self.pose
-            self.display_angles = self.angles
+            self.current_pose[:] = self.pose
+            self.current_angles[:] = self.angles
 
 
 if __name__ == "__main__":

@@ -1,5 +1,3 @@
-import time
-
 import dash
 import dash_bootstrap_components as dbc
 import plotly.io as pio
@@ -7,7 +5,7 @@ from dash import html, dcc
 from dash.dash_table import DataTable
 from dash.dependencies import Input, Output
 import logging
-import threading
+from flask import request
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.CRITICAL)
@@ -15,26 +13,29 @@ log.setLevel(logging.CRITICAL)
 pio.templates.default = "plotly_white"
 
 
-class DisplayInterface(threading.Thread):
+class Dashboard:
     def __init__(
         self,
-        fetch_pose,
-        fetch_angles,
-        fetch_memory,
-        fetch_feed,
-        clear_error,
-        save,
-        stop,
+        get_pose,
+        get_angles,
+        get_memory,
+        get_feed,
+        func_clear_error,
+        func_save,
+        func_stop,
+        func_bundle,
+        shutdown_event,
     ):
-        self.fetch_pose = fetch_pose
-        self.fetch_angles = fetch_angles
-        self.fetch_memory = fetch_memory
-        self.fetch_feed = fetch_feed
-        self.clear_error = clear_error
-        self.save = save
-        self.stop_func = stop
+        self.get_pose = get_pose
+        self.get_angles = get_angles
+        self.get_memory = get_memory
+        self.get_feed = get_feed
+        self.func_clear_error = func_clear_error
+        self.func_save = func_save
+        self.func_stop = func_stop
+        self.func_bundle = func_bundle
+        self.shutdown_event = shutdown_event
 
-        threading.Thread.__init__(self)
         self.app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
         self.app.layout = dbc.Container(
@@ -222,6 +223,14 @@ class DisplayInterface(threading.Thread):
                         ),
                         dbc.Col(
                             dbc.Button(
+                                "Bundle",
+                                id="bundle-button",
+                                color="primary",
+                                className="mr-1",
+                            )
+                        ),
+                        dbc.Col(
+                            dbc.Button(
                                 "Stop",
                                 id="stop-button",
                                 color="secondary",
@@ -250,9 +259,7 @@ class DisplayInterface(threading.Thread):
             prevent_initial_call=True,
         )
         def update_pose(_):
-            pose = self.fetch_pose()
-            angles = self.fetch_angles()
-            return *pose, *angles
+            return *self.get_pose(), *self.get_angles()
 
         @self.app.callback(
             Output("memory-table", "data"),
@@ -260,7 +267,7 @@ class DisplayInterface(threading.Thread):
             prevent_initial_callback=True,
         )
         def update_memory(_):
-            data = [el.serialize() for el in self.fetch_memory()]
+            data = [el.serialize() for el in self.get_memory()]
             for el in data:
                 el["Value"] = str(el["Value"])
             return data
@@ -271,7 +278,7 @@ class DisplayInterface(threading.Thread):
             prevent_initial_callback=True,
         )
         def update_feed(_):
-            data = [el.serialize() for el in self.fetch_feed()]
+            data = [el.serialize() for el in self.get_feed()]
             return data
 
         @self.app.callback(
@@ -281,7 +288,7 @@ class DisplayInterface(threading.Thread):
         )
         def clear_error_callback(n_clicks):
             if n_clicks is not None:
-                self.clear_error()
+                self.func_clear_error()
             return dash.no_update
 
         @self.app.callback(
@@ -291,7 +298,7 @@ class DisplayInterface(threading.Thread):
         )
         def save_callback(n_clicks):
             if n_clicks is not None:
-                self.save()
+                self.func_save()
             return dash.no_update
 
         @self.app.callback(
@@ -301,10 +308,24 @@ class DisplayInterface(threading.Thread):
         )
         def stop_callback(n_clicks):
             if n_clicks is not None:
-                self.stop_func()
-                self.app.shutdown()
-                self.join()
+                self.func_stop()
+                self.shutdown_event.set()
             return dash.no_update
 
+        @self.app.callback(
+            Output("memory-table", "data", allow_duplicate=True),
+            Input("bundle-button", "n_clicks"),
+            prevent_initial_call=True,
+        )
+        def bundle_callback(n_clicks):
+            if n_clicks is not None:
+                self.func_bundle()
+                data = [el.serialize() for el in self.get_memory]
+                for el in data:
+                    el["Value"] = str(el["Value"])
+                return data
+            else:
+                return dash.no_update
+
     def run(self):
-        self.app.run_server()
+        self.app.run()
