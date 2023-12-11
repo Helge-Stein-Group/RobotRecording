@@ -5,7 +5,7 @@ from dash import html, dcc
 from dash.dash_table import DataTable
 from dash.dependencies import Input, Output
 import logging
-from flask import request
+import numpy as np
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.CRITICAL)
@@ -144,7 +144,14 @@ class Dashboard:
                                     id="memory-table",
                                     columns=[
                                         {"name": i, "id": i}
-                                        for i in ["Type", "Value", "Motion Type"]
+                                        for i in [
+                                            "Type",
+                                            "X/J1",
+                                            "Y/J2",
+                                            "Z/J3",
+                                            "R/J4",
+                                            "Motion Type",
+                                        ]
                                     ],
                                     data=[],
                                     style_table={
@@ -269,7 +276,10 @@ class Dashboard:
         def update_memory(_):
             data = [el.serialize() for el in self.get_memory()]
             for el in data:
-                el["Value"] = str(el["Value"])
+                el["X/J1"] = np.round(el["Value"][0], 1)
+                el["Y/J2"] = np.round(el["Value"][1], 1)
+                el["Z/J3"] = np.round(el["Value"][2], 1)
+                el["R/J4"] = np.round(el["Value"][3], 1)
             return data
 
         @self.app.callback(
@@ -278,7 +288,7 @@ class Dashboard:
             prevent_initial_callback=True,
         )
         def update_feed(_):
-            data = [el.serialize() for el in self.get_feed()]
+            data = [el.serialize() for el in reversed(self.get_feed())]
             return data
 
         @self.app.callback(
@@ -313,19 +323,13 @@ class Dashboard:
             return dash.no_update
 
         @self.app.callback(
-            Output("memory-table", "data", allow_duplicate=True),
+            Output("bundle-button", "disabled"),
             Input("bundle-button", "n_clicks"),
-            prevent_initial_call=True,
         )
         def bundle_callback(n_clicks):
             if n_clicks is not None:
                 self.func_bundle()
-                data = [el.serialize() for el in self.get_memory()]
-                for el in data:
-                    el["Value"] = str(el["Value"])
-                return data
-            else:
-                return dash.no_update
+            return dash.no_update
 
     def run(self):
         self.app.run()

@@ -6,100 +6,152 @@ import numpy as np
 import os
 import json
 
-alarmControllerFile="files/alarm_controller.json"
-alarmServoFile="files/alarm_servo.json"
+alarmControllerFile = "files/alarm_controller.json"
+alarmServoFile = "files/alarm_servo.json"
 
 # Port Feedback
-MyType=np.dtype([('len', np.int16, ), 
-                ('Reserve', np.int16, (3,) ),
-                ('digital_input_bits', np.int64, ), 
-                ('digital_outputs', np.int64, ), 
-                ('robot_mode', np.int64, ), 
-                ('controller_timer', np.int64, ),
-                ('run_time', np.int64, ), 
-                ('test_value', np.int64, ), 
-                ('safety_mode', np.float64, ), 
-                ('speed_scaling', np.float64, ), 
-                ('linear_momentum_norm', np.float64, ),
-                ('v_main', np.float64, ), 
-                ('v_robot', np.float64, ), 
-                ('i_robot', np.float64, ), 
-                ('program_state', np.float64, ), 
-                ('safety_status', np.float64, ), 
-                ('tool_accelerometer_values', np.float64, (3,)), 
-                ('elbow_position', np.float64, (3,)), 
-                ('elbow_velocity', np.float64, (3,)), 
-                ('q_target', np.float64, (6,)), 
-                ('qd_target', np.float64,(6,)),
-                ('qdd_target', np.float64, (6,)), 
-                ('i_target', np.float64,(6,)), 
-                ('m_target', np.float64, (6,)), 
-                ('q_actual', np.float64, (6,)), 
-                ('qd_actual', np.float64, (6,)), 
-                ('i_actual', np.float64, (6,)), 
-                ('i_control', np.float64, (6,)), 
-                ('tool_vector_actual', np.float64, (6,)), 
-                ('TCP_speed_actual', np.float64, (6,)), 
-                ('TCP_force', np.float64, (6,)),
-                ('Tool_vector_target', np.float64, (6,)), 
-                ('TCP_speed_target', np.float64, (6,)), 
-                ('motor_temperatures', np.float64, (6,)), 
-                ('joint_modes', np.float64, (6,)), 
-                ('v_actual', np.float64, (6,)), 
-                ('handtype', np.int8, (4,)),
-                ('userCoordinate', np.int8, (1,)), 
-                ('toolCoordinate', np.int8, (1,)),
-                ('isRunQueuedCmd', np.int8, (1,)), 
-                ('isPauseCmdFlag', np.int8, (1,)),
-                ('velocityRatio', np.int8, (1,)), 
-                ('accelerationRatio', np.int8, (1,)),
-                ('jerkRatio', np.int8, (1,)), 
-                ('xyzVelocityRatio', np.int8, (1,)),
-                ('rVelocityRatio', np.int8, (1,)), 
-                ('xyzAccelerationRatio', np.int8, (1,)),
-                ('rAccelerationRatio', np.int8, (1,)), 
-                ('xyzJerkRatio', np.int8, (1,)),
-                ('rJerkRatio', np.int8, (1,)), 
-                ('BrakeStatus', np.int8, (1,)),
-                ('EnableStatus', np.int8, (1,)),
-                ('DragStatus', np.int8, (1,)),
-                ('RunningStatus', np.int8, (1,)),
-                ('ErrorStatus', np.int8, (1,)),
-                ('JogStatus', np.int8, (1,)),
-                ('RobotType', np.int8, (1,)),
-                ('DragButtonSignal', np.int8, (1,)),
-                ('EnableButtonSignal', np.int8, (1,)),
-                ('RecordButtonSignal', np.int8, (1,)),
-                ('ReappearButtonSignal', np.int8, (1,)),
-                ('JawButtonSignal', np.int8, (1,)),
-                ('SixForceOnline', np.int8, (1,)),#1037
-                ('Reserve2', np.int8, (82,)),
-                ('m_actual[6]', np.float64, (6,)), 
-                ('load', np.float64, (1,)),
-                ('centerX', np.float64, (1,)), 
-                ('centerY', np.float64, (1,)),
-                ('centerZ', np.float64, (1,)), 
-                ('user', np.float64, (6,)),
-                ('tool', np.float64, (6,)), 
-                ('traceIndex', np.int64,),
-                ('SixForceValue', np.int64, (6,)),
-                ('TargetQuaternion', np.float64, (4,)),
-                ('ActualQuaternion', np.float64, (4,)),
-                ('Reserve3', np.int8, (24,)),
-                ])
+MyType = np.dtype(
+    [
+        (
+            "len",
+            np.int16,
+        ),
+        ("Reserve", np.int16, (3,)),
+        (
+            "digital_input_bits",
+            np.int64,
+        ),
+        (
+            "digital_outputs",
+            np.int64,
+        ),
+        (
+            "robot_mode",
+            np.int64,
+        ),
+        (
+            "controller_timer",
+            np.int64,
+        ),
+        (
+            "run_time",
+            np.int64,
+        ),
+        (
+            "test_value",
+            np.int64,
+        ),
+        (
+            "safety_mode",
+            np.float64,
+        ),
+        (
+            "speed_scaling",
+            np.float64,
+        ),
+        (
+            "linear_momentum_norm",
+            np.float64,
+        ),
+        (
+            "v_main",
+            np.float64,
+        ),
+        (
+            "v_robot",
+            np.float64,
+        ),
+        (
+            "i_robot",
+            np.float64,
+        ),
+        (
+            "program_state",
+            np.float64,
+        ),
+        (
+            "safety_status",
+            np.float64,
+        ),
+        ("tool_accelerometer_values", np.float64, (3,)),
+        ("elbow_position", np.float64, (3,)),
+        ("elbow_velocity", np.float64, (3,)),
+        ("q_target", np.float64, (6,)),
+        ("qd_target", np.float64, (6,)),
+        ("qdd_target", np.float64, (6,)),
+        ("i_target", np.float64, (6,)),
+        ("m_target", np.float64, (6,)),
+        ("q_actual", np.float64, (6,)),
+        ("qd_actual", np.float64, (6,)),
+        ("i_actual", np.float64, (6,)),
+        ("i_control", np.float64, (6,)),
+        ("tool_vector_actual", np.float64, (6,)),
+        ("TCP_speed_actual", np.float64, (6,)),
+        ("TCP_force", np.float64, (6,)),
+        ("Tool_vector_target", np.float64, (6,)),
+        ("TCP_speed_target", np.float64, (6,)),
+        ("motor_temperatures", np.float64, (6,)),
+        ("joint_modes", np.float64, (6,)),
+        ("v_actual", np.float64, (6,)),
+        ("handtype", np.int8, (4,)),
+        ("userCoordinate", np.int8, (1,)),
+        ("toolCoordinate", np.int8, (1,)),
+        ("isRunQueuedCmd", np.int8, (1,)),
+        ("isPauseCmdFlag", np.int8, (1,)),
+        ("velocityRatio", np.int8, (1,)),
+        ("accelerationRatio", np.int8, (1,)),
+        ("jerkRatio", np.int8, (1,)),
+        ("xyzVelocityRatio", np.int8, (1,)),
+        ("rVelocityRatio", np.int8, (1,)),
+        ("xyzAccelerationRatio", np.int8, (1,)),
+        ("rAccelerationRatio", np.int8, (1,)),
+        ("xyzJerkRatio", np.int8, (1,)),
+        ("rJerkRatio", np.int8, (1,)),
+        ("BrakeStatus", np.int8, (1,)),
+        ("EnableStatus", np.int8, (1,)),
+        ("DragStatus", np.int8, (1,)),
+        ("RunningStatus", np.int8, (1,)),
+        ("ErrorStatus", np.int8, (1,)),
+        ("JogStatus", np.int8, (1,)),
+        ("RobotType", np.int8, (1,)),
+        ("DragButtonSignal", np.int8, (1,)),
+        ("EnableButtonSignal", np.int8, (1,)),
+        ("RecordButtonSignal", np.int8, (1,)),
+        ("ReappearButtonSignal", np.int8, (1,)),
+        ("JawButtonSignal", np.int8, (1,)),
+        ("SixForceOnline", np.int8, (1,)),  # 1037
+        ("Reserve2", np.int8, (82,)),
+        ("m_actual[6]", np.float64, (6,)),
+        ("load", np.float64, (1,)),
+        ("centerX", np.float64, (1,)),
+        ("centerY", np.float64, (1,)),
+        ("centerZ", np.float64, (1,)),
+        ("user", np.float64, (6,)),
+        ("tool", np.float64, (6,)),
+        (
+            "traceIndex",
+            np.int64,
+        ),
+        ("SixForceValue", np.int64, (6,)),
+        ("TargetQuaternion", np.float64, (4,)),
+        ("ActualQuaternion", np.float64, (4,)),
+        ("Reserve3", np.int8, (24,)),
+    ]
+)
 
-#读取控制器和伺服告警文件
+
+# 读取控制器和伺服告警文件
 def alarmAlarmJsonFile():
-    currrntDirectory=os.path.dirname(__file__)
-    jsonContrellorPath=os.path.join(currrntDirectory,alarmControllerFile)
-    jsonServoPath=os.path.join(currrntDirectory,alarmServoFile)
-    
-    with open(jsonContrellorPath,encoding='utf-8') as f:
-        dataController=json.load(f)
-    with open(jsonServoPath,encoding='utf-8') as f:
-        dataServo=json.load(f)
-    return dataController,dataServo   
- 
+    currrntDirectory = os.path.dirname(__file__)
+    jsonContrellorPath = os.path.join(currrntDirectory, alarmControllerFile)
+    jsonServoPath = os.path.join(currrntDirectory, alarmServoFile)
+
+    with open(jsonContrellorPath, encoding="utf-8") as f:
+        dataController = json.load(f)
+    with open(jsonServoPath, encoding="utf-8") as f:
+        dataServo = json.load(f)
+    return dataController, dataServo
+
 
 class DobotApi:
     def __init__(self, ip, port, *args):
@@ -117,19 +169,20 @@ class DobotApi:
             except socket.error:
                 print(socket.error)
                 raise Exception(
-                    f"Unable to set socket connection use port {self.port} !", socket.error)
+                    f"Unable to set socket connection use port {self.port} !",
+                    socket.error,
+                )
         else:
-            raise Exception(
-                f"Connect to dashboard server need use port {self.port} !")
+            raise Exception(f"Connect to dashboard server need use port {self.port} !")
 
     def log(self, text):
         if self.text_log:
             date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S ")
-            self.text_log.insert(END, date+text+"\n")
+            self.text_log.insert(END, date + text + "\n")
 
     def send_data(self, string):
         self.log(f"Send to 192.168.1.6:{self.port}: {string}")
-        self.socket_dobot.send(str.encode(string, 'utf-8'))
+        self.socket_dobot.send(str.encode(string, "utf-8"))
 
     def wait_reply(self):
         """
@@ -137,14 +190,14 @@ class DobotApi:
         """
         data = self.socket_dobot.recv(1024)
         data_str = str(data, encoding="utf-8")
-        self.log(f'Receive from 192.168.1.6:{self.port}: {data_str}')
+        self.log(f"Receive from 192.168.1.6:{self.port}: {data_str}")
         return data_str
 
     def close(self):
         """
         Close the port
         """
-        if (self.socket_dobot != 0):
+        if self.socket_dobot != 0:
             self.socket_dobot.close()
 
     def __del__(self):
@@ -156,16 +209,16 @@ class DobotApiDashboard(DobotApi):
     Define class dobot_api_dashboard to establish a connection to Dobot
     """
 
-    def EnableRobot(self,*dynParams):
+    def EnableRobot(self, *dynParams):
         """
         Enable the robot
         """
         string = "EnableRobot("
         for i in range(len(dynParams)):
-         if i == len(dynParams)-1:
-            string = string + str(dynParams[i])
-         else:
-            string = string + str(dynParams[i]) + ","
+            if i == len(dynParams) - 1:
+                string = string + str(dynParams[i])
+            else:
+                string = string + str(dynParams[i]) + ","
         string = string + ")"
         self.send_data(string)
         return self.wait_reply()
@@ -196,7 +249,7 @@ class DobotApiDashboard(DobotApi):
 
     def SpeedFactor(self, speed):
         """
-        Setting the Global rate   
+        Setting the Global rate
         speed:Rate value(Value range:1~100)
         """
         string = "SpeedFactor({:d})".format(speed)
@@ -359,12 +412,10 @@ class DobotApiDashboard(DobotApi):
             "F32" : reads 32-bit single-precision floating-point number (4 bytes, occupying 2 registers)
             "F64" : reads 64-bit double precision floating point number (8 bytes, occupying 4 registers)
         """
-        if type is not None:  
-          string = "GetHoldRegs({:d},{:d},{:d},{:s})".format(
-            id, addr, count, type)
+        if type is not None:
+            string = "GetHoldRegs({:d},{:d},{:d},{:s})".format(id, addr, count, type)
         else:
-          string = "GetHoldRegs({:d},{:d},{:d})".format(
-            id, addr, count)   
+            string = "GetHoldRegs({:d},{:d},{:d})".format(id, addr, count)
         self.send_data(string)
         return self.wait_reply()
 
@@ -383,11 +434,11 @@ class DobotApiDashboard(DobotApi):
             "F64" : reads 64-bit double precision floating point number (8 bytes, occupying 4 registers)
         """
         if type is not None:
-         string = "SetHoldRegs({:d},{:d},{:d},{:d})".format(
-            id, addr, count, table)
+            string = "SetHoldRegs({:d},{:d},{:d},{:d})".format(id, addr, count, table)
         else:
-         string = "SetHoldRegs({:d},{:d},{:d},{:d},{:s})".format(
-            id, addr, count, table, type)
+            string = "SetHoldRegs({:d},{:d},{:d},{:d},{:s})".format(
+                id, addr, count, table, type
+            )
         self.send_data(string)
         return self.wait_reply()
 
@@ -398,143 +449,156 @@ class DobotApiDashboard(DobotApi):
         string = "GetErrorID()"
         self.send_data(string)
         return self.wait_reply()
-    
-    
-    def DOExecute(self,offset1,offset2):
-        string = "DOExecute({:d},{:d}".format(offset1,offset2)+")"
-        self.send_data(string)
-        return self.wait_reply()
-      
-    def ToolDO(self,offset1,offset2):
-        string = "ToolDO({:d},{:d}".format(offset1,offset2)+")"
+
+    def DOExecute(self, offset1, offset2):
+        string = "DOExecute({:d},{:d}".format(offset1, offset2) + ")"
         self.send_data(string)
         return self.wait_reply()
 
-    def ToolDOExecute(self,offset1,offset2):
-        string = "ToolDOExecute({:d},{:d}".format(offset1,offset2)+")"
+    def ToolDO(self, offset1, offset2):
+        string = "ToolDO({:d},{:d}".format(offset1, offset2) + ")"
         self.send_data(string)
         return self.wait_reply()
 
-    def  SetArmOrientation(self,offset1):
-        string = "SetArmOrientation({:d}".format(offset1)+")"
+    def ToolDOExecute(self, offset1, offset2):
+        string = "ToolDOExecute({:d},{:d}".format(offset1, offset2) + ")"
+        self.send_data(string)
+        return self.wait_reply()
+
+    def SetArmOrientation(self, offset1):
+        string = "SetArmOrientation({:d}".format(offset1) + ")"
         self.send_data(string)
         return self.wait_reply()
 
     def SetPayload(self, offset1, *dynParams):
-        string = "SetPayload({:f}".format(
-            offset1)
+        string = "SetPayload({:f}".format(offset1)
         for params in dynParams:
-          string = string +","+ str(params)+","
+            string = string + "," + str(params) + ","
         string = string + ")"
         self.send_data(string)
         return self.wait_reply()
 
-    def PositiveSolution(self,offset1,offset2,offset3,offset4,user,tool):   
-        string = "PositiveSolution({:f},{:f},{:f},{:f},{:d},{:d}".format(offset1,offset2,offset3,offset4,user,tool)+")"
+    def PositiveSolution(self, offset1, offset2, offset3, offset4, user, tool):
+        string = (
+            "PositiveSolution({:f},{:f},{:f},{:f},{:d},{:d}".format(
+                offset1, offset2, offset3, offset4, user, tool
+            )
+            + ")"
+        )
         self.send_data(string)
         return self.wait_reply()
 
-    def InverseSolution(self,offset1,offset2,offset3,offset4,user,tool,*dynParams):       
-        string = "InverseSolution({:f},{:f},{:f},{:f},{:d},{:d}".format(offset1,offset2,offset3,offset4,user,tool)
+    def InverseSolution(
+        self, offset1, offset2, offset3, offset4, user, tool, *dynParams
+    ):
+        string = "InverseSolution({:f},{:f},{:f},{:f},{:d},{:d}".format(
+            offset1, offset2, offset3, offset4, user, tool
+        )
         for params in dynParams:
             print(type(params), params)
             string = string + repr(params)
         string = string + ")"
         self.send_data(string)
-        return self.wait_reply()     
+        return self.wait_reply()
 
-    def SetCollisionLevel(self,offset1):
-        string = "SetCollisionLevel({:d}".format(offset1)+")"
+    def SetCollisionLevel(self, offset1):
+        string = "SetCollisionLevel({:d}".format(offset1) + ")"
         self.send_data(string)
         return self.wait_reply()
 
-    def  GetAngle(self):
+    def GetAngle(self):
         string = "GetAngle()"
         self.send_data(string)
         return self.wait_reply()
 
-    def  GetPose(self):   
+    def GetPose(self):
         string = "GetPose()"
         self.send_data(string)
         return self.wait_reply()
-    
+
     def EmergencyStop(self):
         string = "EmergencyStop()"
         self.send_data(string)
         return self.wait_reply()
 
-
-    def ModbusCreate(self,ip,port,slave_id,isRTU):
-        string ="ModbusCreate({:s},{:d},{:d},{:d}".format(ip,port,slave_id,isRTU)+")"
-        self.send_data(string)
-        return self.wait_reply()
-    
-    def ModbusClose(self,offset1):
-        string = "ModbusClose({:d}".format(offset1)+")"
+    def ModbusCreate(self, ip, port, slave_id, isRTU):
+        string = (
+            "ModbusCreate({:s},{:d},{:d},{:d}".format(ip, port, slave_id, isRTU) + ")"
+        )
         self.send_data(string)
         return self.wait_reply()
 
-    def GetInBits(self,offset1,offset2,offset3):
-        string = "GetInBits({:d},{:d},{:d}".format(offset1,offset2,offset3)+")"
+    def ModbusClose(self, offset1):
+        string = "ModbusClose({:d}".format(offset1) + ")"
         self.send_data(string)
-        return self.wait_reply()        
+        return self.wait_reply()
 
-    def GetInRegs(self,offset1,offset2,offset3,*dynParams):
-        string = "GetInRegs({:d},{:d},{:d}".format(offset1,offset2,offset3)
+    def GetInBits(self, offset1, offset2, offset3):
+        string = "GetInBits({:d},{:d},{:d}".format(offset1, offset2, offset3) + ")"
+        self.send_data(string)
+        return self.wait_reply()
+
+    def GetInRegs(self, offset1, offset2, offset3, *dynParams):
+        string = "GetInRegs({:d},{:d},{:d}".format(offset1, offset2, offset3)
         for params in dynParams:
             print(type(params), params)
             string = string + params[0]
         string = string + ")"
         self.send_data(string)
-        return self.wait_reply()  
+        return self.wait_reply()
 
-    def GetCoils(self,offset1,offset2,offset3):
-        string = "GetCoils({:d},{:d},{:d}".format(offset1,offset2,offset3)+")"
+    def GetCoils(self, offset1, offset2, offset3):
+        string = "GetCoils({:d},{:d},{:d}".format(offset1, offset2, offset3) + ")"
         self.send_data(string)
-        return self.wait_reply()          
+        return self.wait_reply()
 
-    def SetCoils(self,offset1,offset2,offset3,offset4):
-        string = "SetCoils({:d},{:d},{:d}".format(offset1,offset2,offset3)+","+ repr(offset4)+")"
+    def SetCoils(self, offset1, offset2, offset3, offset4):
+        string = (
+            "SetCoils({:d},{:d},{:d}".format(offset1, offset2, offset3)
+            + ","
+            + repr(offset4)
+            + ")"
+        )
         print(str(offset4))
         self.send_data(string)
-        return self.wait_reply()              
+        return self.wait_reply()
 
-    def DI(self,offset1):
-        string = "DI({:d}".format(offset1)+")"
+    def DI(self, offset1):
+        string = "DI({:d}".format(offset1) + ")"
         self.send_data(string)
-        return self.wait_reply()        
+        return self.wait_reply()
 
-    def ToolDI(self,offset1):
-        string = "DI({:d}".format(offset1)+")"
+    def ToolDI(self, offset1):
+        string = "DI({:d}".format(offset1) + ")"
         self.send_data(string)
-        return self.wait_reply()   
+        return self.wait_reply()
 
-    def DOGroup(self,*dynParams):
+    def DOGroup(self, *dynParams):
         string = "DOGroup("
         for params in dynParams:
-            string = string + str(params)+","
-        string =string+ ")"   
-        return self.wait_reply()  
+            string = string + str(params) + ","
+        string = string + ")"
+        return self.wait_reply()
 
-    def BrakeControl(self,offset1,offset2): 
-        string = "BrakeControl({:d},{:d}".format(offset1,offset2)+")"
+    def BrakeControl(self, offset1, offset2):
+        string = "BrakeControl({:d},{:d}".format(offset1, offset2) + ")"
         self.send_data(string)
-        return self.wait_reply()             
+        return self.wait_reply()
 
     def StartDrag(self):
         string = "StartDrag()"
         self.send_data(string)
-        return self.wait_reply()      
+        return self.wait_reply()
 
     def StopDrag(self):
         string = "StopDrag()"
         self.send_data(string)
-        return self.wait_reply()           
+        return self.wait_reply()
 
-    def LoadSwitch(self,offset1):    
-        string = "LoadSwitch({:d}".format(offset1)+")"
+    def LoadSwitch(self, offset1):
+        string = "LoadSwitch({:d}".format(offset1) + ")"
         self.send_data(string)
-        return self.wait_reply()                                                       
+        return self.wait_reply()
 
     def wait(self):
         string = "wait()"
@@ -550,13 +614,14 @@ class DobotApiDashboard(DobotApi):
         string = "continue()"
         self.send_data(string)
         return self.wait_reply()
-    
+
+
 class DobotApiMove(DobotApi):
     """
     Define class dobot_api_move to establish a connection to Dobot
     """
 
-    def MovJ(self, x, y, z, r,*dynParams):
+    def MovJ(self, x, y, z, r, *dynParams):
         """
         Joint motion interface (point-to-point motion mode)
         x: A number in the Cartesian coordinate system x
@@ -564,16 +629,14 @@ class DobotApiMove(DobotApi):
         z: A number in the Cartesian coordinate system z
         r: A number in the Cartesian coordinate system R
         """
-        string = "MovJ({:f},{:f},{:f},{:f}".format(
-            x, y, z, r)
+        string = "MovJ({:f},{:f},{:f},{:f}".format(x, y, z, r)
         for params in dynParams:
-             string =string+ ","+ str(params)
-        string =string+ ")" 
-        print(string)  
+            string = string + "," + str(params)
+        string = string + ")"
         self.send_data(string)
         return self.wait_reply()
 
-    def MovL(self, x, y, z, r,*dynParams):
+    def MovL(self, x, y, z, r, *dynParams):
         """
         Coordinate system motion interface (linear motion mode)
         x: A number in the Cartesian coordinate system x
@@ -581,25 +644,23 @@ class DobotApiMove(DobotApi):
         z: A number in the Cartesian coordinate system z
         r: A number in the Cartesian coordinate system R
         """
-        string = "MovL({:f},{:f},{:f},{:f}".format(
-            x, y, z, r)
+        string = "MovL({:f},{:f},{:f},{:f}".format(x, y, z, r)
         for params in dynParams:
-             string =string+ ","+ str(params)
-        string =string+ ")" 
-        print(string) 
+            string = string + "," + str(params)
+        string = string + ")"
+        print(string)
         self.send_data(string)
         return self.wait_reply()
 
-    def JointMovJ(self, j1, j2, j3, j4,*dynParams):
+    def JointMovJ(self, j1, j2, j3, j4, *dynParams):
         """
         Joint motion interface (linear motion mode)
         j1~j6:Point position values on each joint
         """
-        string = "JointMovJ({:f},{:f},{:f},{:f}".format(
-            j1, j2, j3, j4)
+        string = "JointMovJ({:f},{:f},{:f},{:f}".format(j1, j2, j3, j4)
         for params in dynParams:
-            string =string+ ","+ str(params)
-        string =string+ ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         print(string)
         self.send_data(string)
         return self.wait_reply()
@@ -607,20 +668,19 @@ class DobotApiMove(DobotApi):
     def Jump(self):
         print("待定")
 
-    def RelMovJ(self, x, y, z, r,*dynParams):
+    def RelMovJ(self, x, y, z, r, *dynParams):
         """
         Offset motion interface (point-to-point motion mode)
         j1~j6:Point position values on each joint
         """
-        string = "RelMovJ({:f},{:f},{:f},{:f}".format(
-            x, y, z, r)
+        string = "RelMovJ({:f},{:f},{:f},{:f}".format(x, y, z, r)
         for params in dynParams:
-            string =string+ ","+ str(params)
-        string =string+ ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         self.send_data(string)
         return self.wait_reply()
 
-    def RelMovL(self, offsetX, offsetY, offsetZ,offsetR,*dynParams):
+    def RelMovL(self, offsetX, offsetY, offsetZ, offsetR, *dynParams):
         """
         Offset motion interface (point-to-point motion mode)
         x: Offset in the Cartesian coordinate system x
@@ -628,10 +688,12 @@ class DobotApiMove(DobotApi):
         z: Offset in the Cartesian coordinate system Z
         r: Offset in the Cartesian coordinate system R
         """
-        string = "RelMovL({:f},{:f},{:f},{:f}".format(offsetX, offsetY, offsetZ,offsetR)
+        string = "RelMovL({:f},{:f},{:f},{:f}".format(
+            offsetX, offsetY, offsetZ, offsetR
+        )
         for params in dynParams:
-            string =string+ ","+ str(params)
-        string =string+ ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         self.send_data(string)
         return self.wait_reply()
 
@@ -650,11 +712,10 @@ class DobotApiMove(DobotApi):
                     Status ：Digital output state（Value range：0/1）
         """
         # example： MovLIO(0,50,0,0,0,0,(0,50,1,0),(1,1,2,1))
-        string = "MovLIO({:f},{:f},{:f},{:f}".format(
-            x, y, z, r)
+        string = "MovLIO({:f},{:f},{:f},{:f}".format(x, y, z, r)
         for params in dynParams:
-            string =string+ ","+ str(params)
-        string =string+ ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         self.send_data(string)
         return self.wait_reply()
 
@@ -673,17 +734,16 @@ class DobotApiMove(DobotApi):
                     Status ：Digital output state（Value range：0/1）
         """
         # example： MovJIO(0,50,0,0,0,0,(0,50,1,0),(1,1,2,1))
-        string = "MovJIO({:f},{:f},{:f},{:f}".format(
-            x, y, z, r)
+        string = "MovJIO({:f},{:f},{:f},{:f}".format(x, y, z, r)
         self.log("Send to 192.168.1.6:29999:" + string)
         for params in dynParams:
-            string =string+ ","+ str(params)
-        string =string+ ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         print(string)
         self.send_data(string)
         return self.wait_reply()
 
-    def Arc(self, x1, y1, z1, r1, x2, y2, z2, r2,*dynParams):
+    def Arc(self, x1, y1, z1, r1, x2, y2, z2, r2, *dynParams):
         """
         Circular motion instruction
         x1, y1, z1, r1 :Is the point value of intermediate point coordinates
@@ -691,15 +751,16 @@ class DobotApiMove(DobotApi):
         Note: This instruction should be used together with other movement instructions
         """
         string = "Arc({:f},{:f},{:f},{:f},{:f},{:f},{:f},{:f}".format(
-            x1, y1, z1, r1, x2, y2, z2, r2)
+            x1, y1, z1, r1, x2, y2, z2, r2
+        )
         for params in dynParams:
-            string =string+ ","+ str(params)
-        string =string+ ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         print(string)
         self.send_data(string)
         return self.wait_reply()
 
-    def Circle(self, x1, y1, z1, r1, x2, y2, z2, r2,count,*dynParams):
+    def Circle(self, x1, y1, z1, r1, x2, y2, z2, r2, count, *dynParams):
         """
         Full circle motion command
         count：Run laps
@@ -708,10 +769,11 @@ class DobotApiMove(DobotApi):
         Note: This instruction should be used together with other movement instructions
         """
         string = "Circle({:f},{:f},{:f},{:f},{:f},{:f},{:f},{:f},{:d}".format(
-             x1, y1, z1, r1, x2, y2, z2, r2, count)
+            x1, y1, z1, r1, x2, y2, z2, r2, count
+        )
         for params in dynParams:
-            string = string + ","+ str(params)
-        string = string + ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         self.send_data(string)
         return self.wait_reply()
 
@@ -740,8 +802,8 @@ class DobotApiMove(DobotApi):
         Joint motion
         axis_id: Joint motion axis, optional string value:
             J1+ J2+ J3+ J4+ J5+ J6+
-            J1- J2- J3- J4- J5- J6- 
-            X+ Y+ Z+ Rx+ Ry+ Rz+ 
+            J1- J2- J3- J4- J5- J6-
+            X+ Y+ Z+ Rx+ Ry+ Rz+
             X- Y- Z- Rx- Ry- Rz-
         *dynParams: Parameter Settings（coord_type, user_index, tool_index）
                     coord_type: 1: User coordinate 2: tool coordinate (default value is 1)
@@ -749,12 +811,12 @@ class DobotApiMove(DobotApi):
                     tool_index: tool index is 0 ~ 9 (default value is 0)
         """
         if axis_id is not None:
-          string = "MoveJog({:s}".format(axis_id)
+            string = "MoveJog({:s}".format(axis_id)
         else:
-          string = "MoveJog("
+            string = "MoveJog("
         for params in dynParams:
-            string = string + ","+ str(params)
-        string = string + ")" 
+            string = string + "," + str(params)
+        string = string + ")"
         self.send_data(string)
         return self.wait_reply()
 
@@ -871,9 +933,10 @@ class DobotApiMove(DobotApi):
                     tool: Set tool coordinate system index
         """
         string = "RelMovJUser({:f},{:f},{:f},{:f}, {:d}".format(
-            offset_x, offset_y, offset_z, offset_r, user)
+            offset_x, offset_y, offset_z, offset_r, user
+        )
         for params in dynParams:
-            string = string + ","+ str(params)
+            string = string + "," + str(params)
         string = string + ")"
         self.send_data(string)
         return self.wait_reply()
@@ -892,9 +955,10 @@ class DobotApiMove(DobotApi):
                     tool: Set tool coordinate system index
         """
         string = "RelMovLUser({:f},{:f},{:f},{:f}, {:d}".format(
-            offset_x, offset_y, offset_z, offset_r, user)
+            offset_x, offset_y, offset_z, offset_r, user
+        )
         for params in dynParams:
-            string = string + ","+ str(params)
+            string = string + "," + str(params)
         string = string + ")"
         self.send_data(string)
         return self.wait_reply()
@@ -909,18 +973,18 @@ class DobotApiMove(DobotApi):
                     acc_j: Set acceleration scale value, value range: 1 ~ 100
         """
         string = "RelJointMovJ({:f},{:f},{:f},{:f}".format(
-            offset1, offset2, offset3, offset4)
+            offset1, offset2, offset3, offset4
+        )
         for params in dynParams:
-           string = string + ","+ str(params)
+            string = string + "," + str(params)
         string = string + ")"
         self.send_data(string)
         return self.wait_reply()
-    
+
     def MovJExt(self, offset1, *dynParams):
-        string = "MovJExt({:f}".format(
-            offset1)
+        string = "MovJExt({:f}".format(offset1)
         for params in dynParams:
-           string = string + ","+ str(params)
+            string = string + "," + str(params)
         string = string + ")"
         self.send_data(string)
         return self.wait_reply()
@@ -929,5 +993,3 @@ class DobotApiMove(DobotApi):
         string = "SyncAll()"
         self.send_data(string)
         return self.wait_reply()
-
-    

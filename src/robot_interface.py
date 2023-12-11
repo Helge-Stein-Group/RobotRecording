@@ -101,8 +101,11 @@ class RobotInterface:
 
             pose = np.fromstring(
                 result[result.find("{") + 1 : result.find("}")], sep=","
-            )
-            return pose[: self.number_of_joints]
+            )[: self.number_of_joints]
+            if pose.size:
+                return pose
+            else:
+                raise Exception("No pose available")
         except Exception as e:
             self.log_robot(f"Error getting pose {e}")
             self.reconnect()
