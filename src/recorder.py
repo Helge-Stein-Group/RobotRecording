@@ -97,8 +97,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
     def save(self, memory_type, value, motion_type):
         entry = MemoryEntry(memory_type, value, motion_type)
-        if self.autosave_start:
-            self.memory.append(entry)
+        self.memory.append(entry)
 
     def indicate_active_joint(self):
         color = (

@@ -34,7 +34,10 @@ class RobotInterface:
         self.dashboard_port = dashboard_port
         self.move_port = move_port
         self.feed_port = feed_port
-        self.error_translation = json.load(open("../data/translation.json", "r"))
+        self.error_translation = json.load(
+            open("../data/translation.json", "r"),
+        )
+        self.error_translation = {int(k): v for k, v in self.error_translation.items()}
 
         self.number_of_joints = number_of_joints
 
@@ -64,8 +67,6 @@ class RobotInterface:
             time.sleep(0.5)
             self._dashboard.EnableRobot()
             self._dashboard.SpeedJ(100)
-
-        self.move_joint(self.start_pose)
 
     def reconnect(self):
         self.log_robot("Connection lost")
@@ -137,11 +138,37 @@ class RobotInterface:
 
     def nonblocking_move(self, func, params) -> bool:
         func(params)
-        if self.error_id:
+        if len(self.error_id):
             self.log_robot(f"Invalid movement [{self.error_id}]")
             self.clear_error()
             return False
         return True
+
+    def extract_metavalues(self, s):
+        # Extract the return value
+        return_value = int(s.split(",")[0])
+
+        # Extract the method name
+        method_name = re.search(r"\b\w+\b(?=\(\);)", s).group()
+
+        return return_value, method_name
+
+    def extract_error_codes(self, s):
+        error_codes_str = s[s.find("[") : s.rfind("]") + 1]
+        error_codes = json.loads(error_codes_str)
+
+        error_codes = [item for sublist in error_codes for item in sublist]
+        return error_codes
+
+    def extract_pose(self, s):
+        return np.fromstring(s[s.find("{") + 1 : s.find("}")], sep=",")[
+            : self.number_of_joints
+        ]
+
+    def extract_angles(self, s):
+        return np.fromstring(s[s.find("{") + 1 : s.find("}")], sep=",")[
+            : self.number_of_joints
+        ]
 
     @property
     def pose(self):
@@ -152,13 +179,14 @@ class RobotInterface:
             with self.dashboard_lock:
                 result = self._dashboard.GetPose()
 
-            pose = np.fromstring(
-                result[result.find("{") + 1 : result.find("}")], sep=","
-            )[: self.number_of_joints]
-            if pose.size:
+            return_value, method_name = self.extract_metavalues(result)
+
+            if return_value == 0 and method_name == "GetPose":
+                pose = self.extract_pose(result)
                 return pose
             else:
-                raise Exception("No pose available")
+                self.log_robot(f"Error extracting pose {result}")
+                return np.array([0, 0, 0, 0])
         except Exception as e:
             self.log_robot(f"Error getting pose {e}")
             return np.array([0, 0, 0, 0])
@@ -171,13 +199,14 @@ class RobotInterface:
         try:
             with self.dashboard_lock:
                 result = self._dashboard.GetAngle()
-            angles = np.fromstring(
-                result[result.find("{") + 1 : result.find("}")], sep=","
-            )[: self.number_of_joints]
-            if angles.size:
+
+            return_value, method_name = self.extract_metavalues(result)
+            if return_value == 0 and method_name == "GetAngle":
+                angles = self.extract_angles(result)
                 return angles
             else:
-                raise Exception("No angles available")
+                self.log_robot(f"Error extracting angles {result}")
+                return np.array([0, 0, 0, 0])
         except Exception as e:
             self.log_robot(f"Error getting angles {e}")
             return np.array([0, 0, 0, 0])
@@ -188,23 +217,18 @@ class RobotInterface:
             with self.dashboard_lock:
                 result = self._dashboard.GetErrorID()
 
-            string = result[result.find("{") + 1 : result.find("}")]
-            data = json.loads(string)
-            error_ids = [
-                str(item) if int(item) >= 0 else 0
-                for sublist in data
-                for item in sublist
-            ]
-            translations = []
-            for error_id in error_ids:
-                if error_id in self.error_translation:
-                    translations.append(self.error_translation[error_id])
-                else:
-                    translations.append(f"Unknown error {error_id}")
+            return_value, method_name = self.extract_metavalues(result)
 
-            if len(translations) > 0:
-                translations = translations[0]
-            return translations
+            if return_value == 0 and method_name == "GetErrorID":
+                translations = []
+                for error_code in self.extract_error_codes(result):
+                    if error_code in self.error_translation:
+                        translations.append(self.error_translation[error_code])
+                    else:
+                        translations.append(f"Unknown error {error_code}")
+                return translations
+            else:
+                self.log_robot(f"Error extracting error codes {result}")
         except Exception as e:
             self.log_robot(f"Error getting error id {e}")
             print("Result", result)
@@ -226,7 +250,7 @@ class RobotInterface:
                 elif entry.motion_type == MotionType.JOINT:
                     func = self.move_joint_relative
 
-            result = self.nonblocking_move(func, *entry.value)
+            result = self.nonblocking_move(func, entry.value)
             if not result:
                 self.log_robot(
                     f"Error replaying from {self.pose if entry.motion_type == MemoryType.POINT else self.angles} "

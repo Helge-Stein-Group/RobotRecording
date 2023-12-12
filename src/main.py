@@ -4,7 +4,7 @@ from threading import Event
 import time
 
 if __name__ == "__main__":
-    recorder = RobotRecorder()
+    recorder = RobotRecorder(autosave_start=False)
     time.sleep(1)
     recorder.start()
 
