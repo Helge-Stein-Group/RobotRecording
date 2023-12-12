@@ -76,15 +76,15 @@ class Dashboard:
                             dbc.Stack(
                                 [
                                     dbc.Button(
-                                        "Clear Error",
-                                        id="clear-error-button",
-                                        color="danger",
+                                        "Save Memory",
+                                        id="save-memory-button",
+                                        color="success",
                                         className="mr-1",
                                     ),
                                     dbc.Button(
-                                        "Reconnect",
-                                        id="reconnect-button",
-                                        color="danger",
+                                        "Bundle",
+                                        id="bundle-button",
+                                        color="success",
                                         className="mr-1",
                                     ),
                                 ],
@@ -96,15 +96,15 @@ class Dashboard:
                             dbc.Stack(
                                 [
                                     dbc.Button(
-                                        "Save Memory",
-                                        id="save-memory-button",
-                                        color="primary",
+                                        "Clear Error",
+                                        id="clear-error-button",
+                                        color="warning",
                                         className="mr-1",
                                     ),
                                     dbc.Button(
-                                        "Bundle",
-                                        id="bundle-button",
-                                        color="primary",
+                                        "Reconnect",
+                                        id="reconnect-button",
+                                        color="warning",
                                         className="mr-1",
                                     ),
                                 ],
@@ -118,7 +118,7 @@ class Dashboard:
                                     dbc.Button(
                                         "Stop",
                                         id="stop-button",
-                                        color="secondary",
+                                        color="danger",
                                         className="mr-1",
                                     ),
                                 ],
@@ -129,38 +129,8 @@ class Dashboard:
                         dbc.Col(
                             dbc.Stack(
                                 [
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(dbc.Label("Speed Joint"), width=6),
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id="speed-joint-slider",
-                                                    type="range",
-                                                    min=1,
-                                                    max=100,
-                                                    step=1,
-                                                    value=100,
-                                                ),
-                                                width=6,
-                                            ),
-                                        ],
-                                    ),
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(dbc.Label("Speed Linear"), width=6),
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id="speed-linear-slider",
-                                                    type="range",
-                                                    min=1,
-                                                    max=100,
-                                                    step=1,
-                                                    value=100,
-                                                ),
-                                                width=6,
-                                            ),
-                                        ],
-                                    ),
+                                    self.slider("Speed Joint", "speed-joint-slider"),
+                                    self.slider("Speed Linear", "speed-linear-slider"),
                                 ],
                                 gap=3,
                             ),
@@ -169,42 +139,11 @@ class Dashboard:
                         dbc.Col(
                             dbc.Stack(
                                 [
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(
-                                                dbc.Label("Acceleration Joint"), width=6
-                                            ),
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id="acc-joint-slider",
-                                                    type="range",
-                                                    min=1,
-                                                    max=100,
-                                                    step=1,
-                                                    value=100,
-                                                ),
-                                                width=6,
-                                            ),
-                                        ],
+                                    self.slider(
+                                        "Acceleration Joint", "acc-joint-slider"
                                     ),
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(
-                                                dbc.Label("Acceleration Linear"),
-                                                width=6,
-                                            ),
-                                            dbc.Col(
-                                                dcc.Input(
-                                                    id="acc-linear-slider",
-                                                    type="range",
-                                                    min=1,
-                                                    max=100,
-                                                    step=1,
-                                                    value=100,
-                                                ),
-                                                width=6,
-                                            ),
-                                        ],
+                                    self.slider(
+                                        "Acceleration Linear", "acc-linear-slider"
                                     ),
                                 ],
                                 gap=3,
@@ -562,6 +501,24 @@ class Dashboard:
                 value = self.status_controller()
                 return value, "green" if value else "red"
             return dash.no_update
+
+    def slider(self, label, id):
+        return dbc.Row(
+            [
+                dbc.Col(dbc.Label(label), width=5),
+                dbc.Col(
+                    dcc.Slider(
+                        id=id,
+                        min=1,
+                        max=100,
+                        step=1,
+                        value=100,
+                        marks={1: "1", 100: "100"},
+                    ),
+                    width=7,
+                ),
+            ],
+        )
 
     def run(self):
         self.app.run()
