@@ -84,7 +84,8 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.running = False  # Leads to the thread dying
         time.sleep(0.5)
         self.default_keymap()  # self.dashboard etc. changes when reconnecting so we need to reinitialize the keymap
-        self.controller.close()
+        if self.controller_is_alive():
+            self.controller.close()
         RobotInterface.reconnect(self)
         self.connect_controller()
         self.set_controls()
