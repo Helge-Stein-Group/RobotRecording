@@ -1,5 +1,6 @@
 import json
 import time
+import re
 
 import numpy as np
 
@@ -9,6 +10,7 @@ from include.dobot_api import (
     DobotApiMove,
 )
 from utils import MemoryType, MotionType
+import threading
 
 
 class RobotInterface:
@@ -21,9 +23,11 @@ class RobotInterface:
         number_of_joints: int = 4,
         print_function: callable = print,
     ):
-        self.dashboard = None
-        self.move = None
-        self.feed = None
+        self._dashboard = None
+        self._move = None
+        self.feed = None  # unused
+
+        self.dashboard_lock = threading.Lock()
 
         self.robot_ip = robot_ip
         self.identifier = robot_ip.split(".")[1]
@@ -34,7 +38,7 @@ class RobotInterface:
 
         self.number_of_joints = number_of_joints
 
-        self.start_angles = np.array([0, 0, 220, 0])
+        self.start_pose = np.array([0, 0, 220, 0])
 
         self.print_function = print_function
 
@@ -44,10 +48,10 @@ class RobotInterface:
     def connect_robot(self):
         try:
             self.log_robot("Connecting")
-            self.dashboard = DobotApiDashboard(
+            self._dashboard = DobotApiDashboard(
                 self.robot_ip, self.dashboard_port, False
             )
-            self.move = DobotApiMove(self.robot_ip, self.move_port, False)
+            self._move = DobotApiMove(self.robot_ip, self.move_port, False)
             self.feed = DobotApi(self.robot_ip, self.feed_port)
             self.log_robot("Connection successful")
         except Exception as e:
@@ -55,36 +59,84 @@ class RobotInterface:
             raise e
 
     def init_robot(self):
-        self.dashboard.ClearError()
-        time.sleep(0.5)
-        self.dashboard.EnableRobot()
-        self.dashboard.SpeedJ(100)
+        with self.dashboard_lock:
+            self._dashboard.ClearError()
+            time.sleep(0.5)
+            self._dashboard.EnableRobot()
+            self._dashboard.SpeedJ(100)
 
-        self.move.MovJ(*self.start_angles)
+        self.move_joint(self.start_pose)
 
     def reconnect(self):
         self.log_robot("Connection lost")
         self.log_robot("Trying to reconnect")
         self.close_robot()
+        time.sleep(0.5)
         self.connect_robot()
         self.init_robot()
 
     def close_robot(self):
-        self.dashboard.close()
-        self.move.close()
+        with self.dashboard_lock:
+            self._dashboard.close()
+        self._move.close()
         self.feed.close()
+
+    def move_joint(self, cartesian_coordinates):
+        self._move.MovJ(*cartesian_coordinates)
+        self._move.Sync()
+
+    def move_linear(self, cartesian_coordinates):
+        self._move.MovL(*cartesian_coordinates)
+        self._move.Sync()
+
+    def move_joint_relative(self, movement):
+        self._move.RelMovJ(*movement)
+        self._move.Sync()
+
+    def move_linear_relative(self, movement):
+        self._move.RelMovL(*movement)
+        self._move.Sync()
+
+    def robot_is_alive(self):
+        try:
+            with self.dashboard_lock:
+                self._dashboard.GetPose()
+            return True
+        except:
+            return False
+
+    def set_joint_speed(self, speed):
+        self.log_robot(f"Setting joint speed to {speed}")
+        with self.dashboard_lock:
+            self._dashboard.SpeedJ(int(speed))
+
+    def set_linear_speed(self, speed):
+        self.log_robot(f"Setting linear speed to {speed}")
+        with self.dashboard_lock:
+            self._dashboard.SpeedL(int(speed))
+
+    def set_joint_acceleration(self, acceleration):
+        self.log_robot(f"Setting joint acceleration to {acceleration}")
+        with self.dashboard_lock:
+            self._dashboard.AccJ(int(acceleration))
+
+    def set_linear_acceleration(self, acceleration):
+        self.log_robot(f"Setting linear acceleration to {acceleration}")
+        with self.dashboard_lock:
+            self._dashboard.AccL(int(acceleration))
 
     def log_robot(self, msg: str):
         self.print_function(msg, f"Robot {self.identifier}")
 
     def clear_error(self):
         self.log_robot("Clearing error (" + str(self.error_id) + ")")
-        self.dashboard.ClearError()
-        time.sleep(0.5)
-        self.dashboard.EnableRobot()
+        with self.dashboard_lock:
+            self._dashboard.ClearError()
+            time.sleep(0.5)
+            self._dashboard.EnableRobot()
 
-    def nonblocking_move(self, func, *params) -> bool:
-        func(*params)
+    def nonblocking_move(self, func, params) -> bool:
+        func(params)
         if self.error_id:
             self.log_robot(f"Invalid movement [{self.error_id}]")
             self.clear_error()
@@ -97,7 +149,8 @@ class RobotInterface:
         return pose in [x, y, z, r] format
         """
         try:
-            result = self.dashboard.GetPose()
+            with self.dashboard_lock:
+                result = self._dashboard.GetPose()
 
             pose = np.fromstring(
                 result[result.find("{") + 1 : result.find("}")], sep=","
@@ -108,7 +161,7 @@ class RobotInterface:
                 raise Exception("No pose available")
         except Exception as e:
             self.log_robot(f"Error getting pose {e}")
-            self.reconnect()
+            return np.array([0, 0, 0, 0])
 
     @property
     def angles(self):
@@ -116,7 +169,8 @@ class RobotInterface:
         return angles in [j1, j2, j3, j4] format
         """
         try:
-            result = self.dashboard.GetAngle()
+            with self.dashboard_lock:
+                result = self._dashboard.GetAngle()
             angles = np.fromstring(
                 result[result.find("{") + 1 : result.find("}")], sep=","
             )[: self.number_of_joints]
@@ -126,12 +180,13 @@ class RobotInterface:
                 raise Exception("No angles available")
         except Exception as e:
             self.log_robot(f"Error getting angles {e}")
-            self.reconnect()
+            return np.array([0, 0, 0, 0])
 
     @property
     def error_id(self):
         try:
-            result = self.dashboard.GetErrorID()
+            with self.dashboard_lock:
+                result = self._dashboard.GetErrorID()
 
             string = result[result.find("{") + 1 : result.find("}")]
             data = json.loads(string)
@@ -151,23 +206,25 @@ class RobotInterface:
                 translations = translations[0]
             return translations
         except Exception as e:
-            print(e)
             self.log_robot(f"Error getting error id {e}")
-            self.reconnect()
+            print("Result", result)
+        except json.decoder.JSONDecodeError:
+            self.log_robot(f"Error in JSON parsing")
+            return []
 
     def replay(self, memory):
         self.log_robot("Replaying")
         for entry in memory:
             if entry.type == MemoryType.POINT:
                 if entry.motion_type == MotionType.LINEAR:
-                    func = self.move.MovL
+                    func = self.move_linear
                 elif entry.motion_type == MotionType.JOINT:
-                    func = self.move.MovJ
+                    func = self.move_joint
             elif entry.type == MemoryType.MOVEMENT:
                 if entry.motion_type == MotionType.LINEAR:
-                    func = self.move.RelMovL
+                    func = self.move_linear_relative
                 elif entry.motion_type == MotionType.JOINT:
-                    func = self.move.RelMovJ
+                    func = self.move_joint_relative
 
             result = self.nonblocking_move(func, *entry.value)
             if not result:
@@ -176,5 +233,5 @@ class RobotInterface:
                 )
                 self.log_robot(f"Error replaying to {entry.value}")
                 break
-            self.move.Sync()
+            self._move.Sync()
         self.log_robot("Done Replaying")

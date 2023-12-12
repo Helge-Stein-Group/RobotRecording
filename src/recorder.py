@@ -57,22 +57,6 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.mode = MemoryType.POINT
         self.running = False
 
-        self.init_robot_connection()
-        ControllerInterface.__init__(self, keymap, self.add_feed)
-        threading.Thread.__init__(self)
-
-        if self.keymap is None:
-            self.default_keymap()
-
-        if autosave_start:
-            self.memory.append(
-                MemoryEntry(MemoryType.POINT, self.start_angles, MotionType.JOINT)
-            )
-
-        self.set_controls()
-        self.indicate_active_joint()
-
-    def init_robot_connection(self):
         RobotInterface.__init__(
             self,
             self.robot_ip,
@@ -82,12 +66,31 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             self.number_of_joints,
             self.add_feed,
         )
+        ControllerInterface.__init__(self, keymap, self.add_feed)
+        if self.keymap is None:
+            self.default_keymap()
+
+        if autosave_start:
+            self.memory.append(
+                MemoryEntry(MemoryType.POINT, self.start_pose, MotionType.JOINT)
+            )
+
+        self.set_controls()
+        self.indicate_active_joint()
+
+        threading.Thread.__init__(self)
 
     def reconnect(self):
-        super().reconnect()
-        self.default_keymap()
-        ControllerInterface.__init__(self, self.keymap, self.add_feed)
+        self.running = False  # Leads to the thread dying
+        time.sleep(0.5)
+        self.default_keymap()  # self.dashboard etc. changes when reconnecting so we need to reinitialize the keymap
+        self.controller.close()
+        RobotInterface.reconnect(self)
+        self.connect_controller()
         self.set_controls()
+        self.running = True
+        threading.Thread.__init__(self)  # re-initialize the thread
+        self.start()
 
     def add_feed(self, msg: str, source: str):
         self.feed_log.append(FeedEntry(datetime.now(), msg, source))
@@ -165,7 +168,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         def generate_linear_move_func(movement):
             def linear_move_func(state):
                 if state:
-                    result = self.nonblocking_move(self.move.RelMovL, *movement)
+                    result = self.nonblocking_move(self.move_linear_relative, movement)
                     if self.mode == MemoryType.MOVEMENT and result:
                         self.save(MemoryType.MOVEMENT, movement, MotionType.LINEAR)
 
@@ -230,18 +233,15 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         movement[self.right_joystick_joint] += (
             self.right_joystick * self.max_speed[self.right_joystick_joint]
         )
-
         bounded_movement = self.bound_movement(movement)
         bounded_movement = np.where(np.abs(bounded_movement) < 0.5, 0, bounded_movement)
         if np.any(bounded_movement):
             try:
-                self.move.RelMovJ(*bounded_movement)
-                self.move.Sync()
+                self.move_joint_relative(bounded_movement)
                 if self.mode == MemoryType.MOVEMENT and np.sum(movement) > 0:
                     self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
             except ConnectionAbortedError:
-                self.add_feed("Robot connection aborted", "Recorder")
-                self.init_robot_connection()
+                self.add_feed("Connection aborted", "Recorder")
 
     def optimize_linear_movement(self):
         optimized_memory = []
@@ -274,10 +274,9 @@ if __name__ == "__main__":
     recorder = RobotRecorder()
     recorder.start()
 
-    import keyboard
-
-    while True:
-        if keyboard.is_pressed("q"):
-            recorder.stop()
-            break
-        time.sleep(0.1)
+    time.sleep(1)
+    print("Reconnecting")
+    recorder.reconnect()
+    print("Reconnected")
+    time.sleep(10)
+    recorder.stop()

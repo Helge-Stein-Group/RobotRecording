@@ -4,6 +4,7 @@ import plotly.io as pio
 from dash import html, dcc
 from dash.dash_table import DataTable
 from dash.dependencies import Input, Output
+import dash_daq as daq
 import logging
 import numpy as np
 
@@ -21,20 +22,36 @@ class Dashboard:
         get_memory,
         get_feed,
         func_clear_error,
+        func_reconnect,
         func_save,
         func_stop,
         func_bundle,
         shutdown_event,
+        set_speed_joint,
+        set_speed_linear,
+        set_acc_joint,
+        set_acc_linear,
+        status_recorder,
+        status_robot,
+        status_controller,
     ):
         self.get_pose = get_pose
         self.get_angles = get_angles
         self.get_memory = get_memory
         self.get_feed = get_feed
         self.func_clear_error = func_clear_error
+        self.func_reconnect = func_reconnect
         self.func_save = func_save
         self.func_stop = func_stop
         self.func_bundle = func_bundle
         self.shutdown_event = shutdown_event
+        self.set_speed_joint = set_speed_joint
+        self.set_speed_linear = set_speed_linear
+        self.set_acc_joint = set_acc_joint
+        self.set_acc_linear = set_acc_linear
+        self.status_recorder = status_recorder
+        self.status_robot = status_robot
+        self.status_controller = status_controller
 
         self.app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -213,36 +230,145 @@ class Dashboard:
                 dbc.Row(
                     [
                         dbc.Col(
-                            dbc.Button(
-                                "Clear Error",
-                                id="clear-error-button",
-                                color="danger",
-                                className="mr-1",
-                            )
+                            dbc.Stack(
+                                [
+                                    dbc.Button(
+                                        "Clear Error",
+                                        id="clear-error-button",
+                                        color="danger",
+                                        className="mr-1",
+                                    ),
+                                    dbc.Button(
+                                        "Reconnect",
+                                        id="reconnect-button",
+                                        color="danger",
+                                        className="mr-1",
+                                    ),
+                                    dbc.Button(
+                                        "Save Memory",
+                                        id="save-memory-button",
+                                        color="primary",
+                                        className="mr-1",
+                                    ),
+                                    dbc.Button(
+                                        "Bundle",
+                                        id="bundle-button",
+                                        color="primary",
+                                        className="mr-1",
+                                    ),
+                                    dbc.Button(
+                                        "Stop",
+                                        id="stop-button",
+                                        color="secondary",
+                                        className="mr-1",
+                                    ),
+                                ],
+                                gap=3,
+                            ),
+                            width=2,
                         ),
                         dbc.Col(
-                            dbc.Button(
-                                "Save Memory",
-                                id="save-memory-button",
-                                color="primary",
-                                className="mr-1",
-                            )
+                            dbc.Stack(
+                                [
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(dbc.Label("Speed Joint"), width=2),
+                                            dbc.Col(
+                                                dcc.Input(
+                                                    id="speed-joint-slider",
+                                                    type="range",
+                                                    min=1,
+                                                    max=100,
+                                                    step=1,
+                                                    value=100,
+                                                ),
+                                                width=6,
+                                            ),
+                                        ],
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(dbc.Label("Speed Linear"), width=2),
+                                            dbc.Col(
+                                                dcc.Input(
+                                                    id="speed-linear-slider",
+                                                    type="range",
+                                                    min=1,
+                                                    max=100,
+                                                    step=1,
+                                                    value=100,
+                                                ),
+                                                width=6,
+                                            ),
+                                        ],
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(
+                                                dbc.Label("Acceleration Joint"), width=2
+                                            ),
+                                            dbc.Col(
+                                                dcc.Input(
+                                                    id="acc-joint-slider",
+                                                    type="range",
+                                                    min=1,
+                                                    max=100,
+                                                    step=1,
+                                                    value=100,
+                                                ),
+                                                width=6,
+                                            ),
+                                        ],
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(
+                                                dbc.Label("Acceleration Linear"),
+                                                width=2,
+                                            ),
+                                            dbc.Col(
+                                                dcc.Input(
+                                                    id="acc-linear-slider",
+                                                    type="range",
+                                                    min=1,
+                                                    max=100,
+                                                    step=1,
+                                                    value=100,
+                                                ),
+                                                width=6,
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                                gap=3,
+                            ),
+                            width=2,
                         ),
                         dbc.Col(
-                            dbc.Button(
-                                "Bundle",
-                                id="bundle-button",
-                                color="primary",
-                                className="mr-1",
-                            )
-                        ),
-                        dbc.Col(
-                            dbc.Button(
-                                "Stop",
-                                id="stop-button",
-                                color="secondary",
-                                className="mr-1",
-                            )
+                            dbc.Stack(
+                                [
+                                    daq.Indicator(
+                                        id="recorder-status",
+                                        label="RecorderThread",
+                                        labelPosition="bottom",
+                                        value=True,
+                                    ),
+                                    daq.Indicator(
+                                        id="robot-status",
+                                        label="Robot",
+                                        labelPosition="bottom",
+                                        value=True,
+                                    ),
+                                    daq.Indicator(
+                                        id="controller-status",
+                                        label="Controller",
+                                        labelPosition="bottom",
+                                        value=True,
+                                    ),
+                                ],
+                                gap=3,
+                            ),
+                            width=2,
                         ),
                     ]
                 ),
@@ -329,6 +455,87 @@ class Dashboard:
         def bundle_callback(n_clicks):
             if n_clicks is not None:
                 self.func_bundle()
+            return dash.no_update
+
+        @self.app.callback(
+            Output("reconnect-button", "disabled"),
+            Input("reconnect-button", "n_clicks"),
+        )
+        def bundle_callback(n_clicks):
+            if n_clicks is not None:
+                self.func_reconnect()
+            return dash.no_update
+
+        @self.app.callback(
+            Output("speed-joint-slider", "value"),
+            Input("speed-joint-slider", "value"),
+            prevent_initial_callback=True,
+        )
+        def speed_joint_callback(value):
+            self.set_speed_joint(value)
+            return value
+
+        @self.app.callback(
+            Output("speed-linear-slider", "value"),
+            Input("speed-linear-slider", "value"),
+            prevent_initial_callback=True,
+        )
+        def speed_linear_callback(value):
+            self.set_speed_linear(value)
+            return value
+
+        @self.app.callback(
+            Output("acc-joint-slider", "value"),
+            Input("acc-joint-slider", "value"),
+            prevent_initial_callback=True,
+        )
+        def acc_joint_callback(value):
+            self.set_acc_joint(value)
+            return value
+
+        @self.app.callback(
+            Output("acc-linear-slider", "value"),
+            Input("acc-linear-slider", "value"),
+            prevent_initial_callback=True,
+        )
+        def acc_linear_callback(value):
+            self.set_acc_linear(value)
+            return value
+
+        @self.app.callback(
+            Output("recorder-status", "value"),
+            Output("recorder-status", "color"),
+            Input("interval", "n_intervals"),
+            prevent_initial_callback=True,
+        )
+        def recorder_status_callback(n_intervals):
+            if n_intervals % 5 == 0:
+                value = self.status_recorder()
+                return value, "green" if value else "red"
+            return dash.no_update
+
+        @self.app.callback(
+            Output("robot-status", "value"),
+            Output("robot-status", "color"),
+            Input("interval", "n_intervals"),
+            prevent_initial_callback=True,
+        )
+        def robot_status_callback(n_intervals):
+            if n_intervals % 5 == 0:
+                value = self.status_robot()
+                return value, "green" if value else "red"
+            return dash.no_update
+
+        @self.app.callback(
+            Output("controller-status", "value"),
+            Output("controller-status", "color"),
+            Input("interval", "n_intervals"),
+            prevent_initial_callback=True,
+        )
+        def controller_status_callback(n_intervals):
+            if n_intervals % 5 == 0:
+                value = self.status_controller()
+                return value, "green" if value else "red"
             return dash.no_update
 
     def run(self):

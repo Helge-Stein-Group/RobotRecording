@@ -16,6 +16,9 @@ class ControllerInterface:
 
         self.connect_controller()
 
+    def controller_is_alive(self):
+        return self.controller.states is not None
+
     def log_controller(self, msg: str):
         self.print_function(msg, f"Controller {self.serial_number}")
 
