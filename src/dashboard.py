@@ -1,12 +1,13 @@
+import logging
+
 import dash
 import dash_bootstrap_components as dbc
+import dash_daq as daq
+import numpy as np
 import plotly.io as pio
 from dash import html, dcc
 from dash.dash_table import DataTable
 from dash.dependencies import Input, Output
-import dash_daq as daq
-import logging
-import numpy as np
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.CRITICAL)
@@ -16,24 +17,23 @@ pio.templates.default = "plotly_white"
 
 class Dashboard:
     def __init__(
-        self,
-        get_pose,
-        get_angles,
-        get_memory,
-        get_feed,
-        func_clear_error,
-        func_reconnect,
-        func_save,
-        func_stop,
-        func_bundle,
-        shutdown_event,
-        set_speed_joint,
-        set_speed_linear,
-        set_acc_joint,
-        set_acc_linear,
-        status_recorder,
-        status_robot,
-        status_controller,
+            self,
+            get_pose,
+            get_angles,
+            get_memory,
+            get_feed,
+            func_clear_error,
+            func_reconnect,
+            func_save,
+            func_stop,
+            func_bundle,
+            set_speed_joint,
+            set_speed_linear,
+            set_acc_joint,
+            set_acc_linear,
+            status_recorder,
+            status_robot,
+            status_controller,
     ):
         self.get_pose = get_pose
         self.get_angles = get_angles
@@ -44,7 +44,6 @@ class Dashboard:
         self.func_save = func_save
         self.func_stop = func_stop
         self.func_bundle = func_bundle
-        self.shutdown_event = shutdown_event
         self.set_speed_joint = set_speed_joint
         self.set_speed_linear = set_speed_linear
         self.set_acc_joint = set_acc_joint
@@ -129,8 +128,8 @@ class Dashboard:
                         dbc.Col(
                             dbc.Stack(
                                 [
-                                    self.slider("Speed Joint", "speed-joint-slider"),
-                                    self.slider("Speed Linear", "speed-linear-slider"),
+                                    self.slider("Speed Joint", "speed-joint-slider", set_speed_joint),
+                                    self.slider("Speed Linear", "speed-linear-slider", set_speed_linear),
                                 ],
                                 gap=3,
                             ),
@@ -139,44 +138,16 @@ class Dashboard:
                         dbc.Col(
                             dbc.Stack(
                                 [
-                                    self.slider(
-                                        "Acceleration Joint", "acc-joint-slider"
-                                    ),
-                                    self.slider(
-                                        "Acceleration Linear", "acc-linear-slider"
-                                    ),
+                                    self.slider("Acceleration Joint", "acc-joint-slider", self.set_acc_joint),
+                                    self.slider("Acceleration Linear", "acc-linear-slider", self.set_acc_linear),
                                 ],
                                 gap=3,
                             ),
                             width=3,
                         ),
-                        dbc.Col(
-                            daq.Indicator(
-                                id="recorder-status",
-                                label="RecorderThread",
-                                labelPosition="bottom",
-                                value=True,
-                            ),
-                            width=1,
-                        ),
-                        dbc.Col(
-                            daq.Indicator(
-                                id="robot-status",
-                                label="Robot",
-                                labelPosition="bottom",
-                                value=True,
-                            ),
-                            width=1,
-                        ),
-                        dbc.Col(
-                            daq.Indicator(
-                                id="controller-status",
-                                label="Controller",
-                                labelPosition="bottom",
-                                value=True,
-                            ),
-                            width=1,
-                        ),
+                        dbc.Col(self.indicator("Recorder", "recorder-status", self.status_recorder), width=1, ),
+                        dbc.Col(self.indicator("Robot", "robot-status", self.status_robot), width=1, ),
+                        dbc.Col(self.indicator("Controller", "controller-status", self.status_controller), width=1, ),
                     ]
                 ),
                 dbc.Row(
@@ -381,134 +352,58 @@ class Dashboard:
             data = [el.serialize() for el in reversed(self.get_feed())]
             return data
 
+        self.button_callback("clear-error-button", self.func_clear_error)
+        self.button_callback("save-memory-button", self.func_save)
+        self.button_callback("stop-button", self.func_stop)
+        self.button_callback("bundle-button", self.func_bundle)
+        self.button_callback("reconnect-button", self.func_reconnect)
+
+    def button_callback(self, idx, func):
         @self.app.callback(
-            Output("clear-error-button", "disabled"),
-            Input("clear-error-button", "n_clicks"),
-            prevent_initial_callback=True,
+            Output(idx, "disabled"),
+            Input(idx, "n_clicks"),
         )
-        def clear_error_callback(n_clicks):
+        def button_callback(n_clicks):
             if n_clicks is not None:
-                self.func_clear_error()
+                func()
             return dash.no_update
 
+    def indicator(self, label, idx, func):
         @self.app.callback(
-            Output("save-memory-button", "disabled"),
-            Input("save-memory-button", "n_clicks"),
-            prevent_initial_callback=True,
-        )
-        def save_callback(n_clicks):
-            if n_clicks is not None:
-                self.func_save()
-            return dash.no_update
-
-        @self.app.callback(
-            Output("stop-button", "disabled"),
-            Input("stop-button", "n_clicks"),
-            prevent_initial_callback=True,
-        )
-        def stop_callback(n_clicks):
-            if n_clicks is not None:
-                self.func_stop()
-                self.shutdown_event.set()
-            return dash.no_update
-
-        @self.app.callback(
-            Output("bundle-button", "disabled"),
-            Input("bundle-button", "n_clicks"),
-        )
-        def bundle_callback(n_clicks):
-            if n_clicks is not None:
-                self.func_bundle()
-            return dash.no_update
-
-        @self.app.callback(
-            Output("reconnect-button", "disabled"),
-            Input("reconnect-button", "n_clicks"),
-        )
-        def bundle_callback(n_clicks):
-            if n_clicks is not None:
-                self.func_reconnect()
-            return dash.no_update
-
-        @self.app.callback(
-            Output("speed-joint-slider", "value"),
-            Input("speed-joint-slider", "value"),
-            prevent_initial_callback=True,
-        )
-        def speed_joint_callback(value):
-            self.set_speed_joint(value)
-            return value
-
-        @self.app.callback(
-            Output("speed-linear-slider", "value"),
-            Input("speed-linear-slider", "value"),
-            prevent_initial_callback=True,
-        )
-        def speed_linear_callback(value):
-            self.set_speed_linear(value)
-            return value
-
-        @self.app.callback(
-            Output("acc-joint-slider", "value"),
-            Input("acc-joint-slider", "value"),
-            prevent_initial_callback=True,
-        )
-        def acc_joint_callback(value):
-            self.set_acc_joint(value)
-            return value
-
-        @self.app.callback(
-            Output("acc-linear-slider", "value"),
-            Input("acc-linear-slider", "value"),
-            prevent_initial_callback=True,
-        )
-        def acc_linear_callback(value):
-            self.set_acc_linear(value)
-            return value
-
-        @self.app.callback(
-            Output("recorder-status", "value"),
-            Output("recorder-status", "color"),
+            Output(idx, "value"),
+            Output(idx, "color"),
             Input("interval", "n_intervals"),
             prevent_initial_callback=True,
         )
-        def recorder_status_callback(n_intervals):
+        def indicator_callback(n_intervals):
             if n_intervals % 5 == 0:
-                value = self.status_recorder()
+                value = func()
                 return value, "green" if value else "red"
             return dash.no_update
 
+        return daq.Indicator(
+            id=idx,
+            label=label,
+            labelPosition="bottom",
+            value=True,
+        )
+
+    def slider(self, label, idx, func):
         @self.app.callback(
-            Output("robot-status", "value"),
-            Output("robot-status", "color"),
-            Input("interval", "n_intervals"),
+            Output(idx, "value"),
+            Input(idx, "value"),
             prevent_initial_callback=True,
         )
-        def robot_status_callback(n_intervals):
-            if n_intervals % 5 == 0:
-                value = self.status_robot()
-                return value, "green" if value else "red"
-            return dash.no_update
+        def slider_callback(value):
+            func(value)
+            return value
 
-        @self.app.callback(
-            Output("controller-status", "value"),
-            Output("controller-status", "color"),
-            Input("interval", "n_intervals"),
-            prevent_initial_callback=True,
-        )
-        def controller_status_callback(n_intervals):
-            if n_intervals % 5 == 0:
-                value = self.status_controller()
-                return value, "green" if value else "red"
-            return dash.no_update
-
-    def slider(self, label, id):
         return dbc.Row(
             [
                 dbc.Col(dbc.Label(label), width=5),
                 dbc.Col(
                     dcc.Slider(
-                        id=id,
+                        id=idx,
                         min=1,
                         max=100,
                         step=1,
