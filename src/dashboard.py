@@ -153,158 +153,26 @@ class Dashboard:
                 dbc.Row(
                     [
                         dbc.Col(
-                            [
-                                html.H4("Pose"),
-                                dbc.InputGroup(
-                                    [
-                                        dbc.InputGroupText("X"),
-                                        dbc.Input(
-                                            id="pose-x-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                        dbc.InputGroupText("Y"),
-                                        dbc.Input(
-                                            id="pose-y-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                        dbc.InputGroupText("Z"),
-                                        dbc.Input(
-                                            id="pose-z-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                        dbc.InputGroupText("R"),
-                                        dbc.Input(
-                                            id="pose-r-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                    ],
-                                    className="mb-3",
-                                ),
-                            ],
-                            md=6,
+                            self.input_group("Pose", ["X", "Y", "Z", "R"],
+                                             [f"pose-{i}-input" for i in ["x", "y", "z", "r"]]),
+                            width=6,
                         ),
                         dbc.Col(
-                            [
-                                html.H4("Angles"),
-                                dbc.InputGroup(
-                                    [
-                                        dbc.InputGroupText("J1"),
-                                        dbc.Input(
-                                            id="angles-j1-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                        dbc.InputGroupText("J2"),
-                                        dbc.Input(
-                                            id="angles-j2-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                        dbc.InputGroupText("J3"),
-                                        dbc.Input(
-                                            id="angles-j3-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                        dbc.InputGroupText("J4"),
-                                        dbc.Input(
-                                            id="angles-j4-input",
-                                            type="number",
-                                            disabled=True,
-                                            value=0,
-                                        ),
-                                    ],
-                                    className="mb-3",
-                                ),
-                            ],
-                            md=6,
+                            self.input_group("Angles", [f"J{i}" for i in range(1, 5)],
+                                             [f"angles-j{i}-input" for i in range(1, 5)]),
+                            width=6,
                         ),
                     ]
                 ),
                 dbc.Row(
                     [
                         dbc.Col(
-                            [
-                                html.H4("Memory"),
-                                DataTable(
-                                    id="memory-table",
-                                    columns=[
-                                        {"name": i, "id": i}
-                                        for i in [
-                                            "Type",
-                                            "X/J1",
-                                            "Y/J2",
-                                            "Z/J3",
-                                            "R/J4",
-                                            "Motion Type",
-                                        ]
-                                    ],
-                                    data=[],
-                                    style_table={
-                                        "maxHeight": "60vh",
-                                        "overflowY": "scroll",
-                                    },
-                                    style_cell={
-                                        "textAlign": "left",
-                                        "whiteSpace": "pre-line",
-                                        "font-family": "sans-serif",
-                                    },
-                                    style_cell_conditional=[
-                                        {"if": {"column_id": ""}, "textAlign": "left"}
-                                    ],
-                                    style_as_list_view=True,
-                                    style_header={
-                                        "border-top": "none",
-                                        "font-family": "sans-serif",
-                                        "background-color": "white",
-                                    },
-                                ),
-                            ],
-                            md=6,
+                            self.table("Memory", "memory-table",
+                                       ["Type", "X/J1", "Y/J2", "Z/J3", "R/J4", "Motion Type"]),
+                            width=6,
                         ),
                         dbc.Col(
-                            [
-                                html.H4("Feed Log"),
-                                DataTable(
-                                    id="feed-table",
-                                    columns=[
-                                        {"name": i, "id": i}
-                                        for i in ["Timestamp", "Message", "Source"]
-                                    ],
-                                    data=[],
-                                    style_table={
-                                        "maxHeight": "60vh",
-                                        "overflowY": "scroll",
-                                    },
-                                    style_cell={
-                                        "textAlign": "left",
-                                        "whiteSpace": "pre-line",
-                                        "font-family": "sans-serif",
-                                    },
-                                    style_cell_conditional=[
-                                        {"if": {"column_id": ""}, "textAlign": "left"}
-                                    ],
-                                    style_as_list_view=True,
-                                    style_header={
-                                        "border-top": "none",
-                                        "font-family": "sans-serif",
-                                        "background-color": "white",
-                                    },
-                                ),
-                            ],
-                            md=6,
-                        ),
+                            self.table("Feed Log", "feed-table", ["Timestamp", "Message", "Source"]), width=6),
                     ]
                 ),
             ],
@@ -357,6 +225,57 @@ class Dashboard:
         self.button_callback("stop-button", self.func_stop)
         self.button_callback("bundle-button", self.func_bundle)
         self.button_callback("reconnect-button", self.func_reconnect)
+
+    def input_group(self, title, labels, ids):
+        def generator(labels, ids):
+            for label, idx in zip(labels, ids):
+                yield dbc.InputGroupText(label)
+                yield dbc.Input(
+                    id=idx,
+                    type="number",
+                    disabled=True,
+                    value=0,
+                )
+
+        return dbc.Container([
+            html.H4(title),
+            dbc.InputGroup(
+                list(generator(labels, ids)),
+                className="mb-3",
+            ),
+        ], fluid=True)
+
+    def table(self, label, idx, columns):
+        return dbc.Container(
+            [
+                html.H4(label),
+                DataTable(
+                    id=idx,
+                    columns=[
+                        {"name": i, "id": i}
+                        for i in columns
+                    ],
+                    data=[],
+                    style_table={
+                        "maxHeight": "60vh",
+                        "overflowY": "scroll",
+                    },
+                    style_cell={
+                        "textAlign": "left",
+                        "whiteSpace": "pre-line",
+                        "font-family": "sans-serif",
+                    },
+                    style_cell_conditional=[
+                        {"if": {"column_id": ""}, "textAlign": "left"}
+                    ],
+                    style_as_list_view=True,
+                    style_header={
+                        "border-top": "none",
+                        "font-family": "sans-serif",
+                        "background-color": "white",
+                    },
+                ),
+            ], fluid=True)
 
     def button_callback(self, idx, func):
         @self.app.callback(
