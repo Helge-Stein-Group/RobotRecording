@@ -15,6 +15,7 @@ if __name__ == "__main__":
         recorder.clear_error,
         recorder.reconnect,
         recorder.dump_memory,
+        recorder.load_memory,
         recorder.stop,
         recorder.optimize_linear_movement,
         recorder.set_joint_speed,

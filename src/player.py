@@ -37,7 +37,7 @@ if __name__ == "__main__":
     import keyboard
 
     player = RobotPlayer()
-    player.read_memory("memory.json")
+    player.read_memory("./recordings/memory.json")
     print("Read memory:")
     player.print_memory()
 

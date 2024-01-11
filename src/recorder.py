@@ -24,7 +24,6 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         joint_bounds: np.ndarray = np.array(
             [[-80, 80], [-125, 125], [85, 245], [-355, 355]]
         ),
-        save_path: str = "memory.json",
     ):
         self.number_of_joints = number_of_joints
 
@@ -48,7 +47,6 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             "right": right_joystick_joint,
         }
         self.joint_bounds = joint_bounds
-        self.save_path = save_path
 
         self.active_joint = number_of_joints // 2
 
@@ -191,10 +189,23 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             dpad_right=generate_linear_move_func([0, self.linear_speed, 0, 0]),
         )
 
-    def dump_memory(self):
-        with open(self.save_path, "w") as f:
+    def load_memory(self, filename="memory.json"):
+        if not filename.endswith(".json"):
+            filename += ".json"
+        try:
+            with open("./recordings/" + filename, "r") as f:
+                self.memory = [MemoryEntry.from_dict(entry) for entry in json.load(f)]
+                self.add_feed(f"Loaded memory from {filename}", "Recorder")
+        except FileNotFoundError:
+            return False
+        return True
+
+    def dump_memory(self, filename="memory.json"):
+        if not filename.endswith(".json"):
+            filename += ".json"
+        with open("./recordings/" + filename, "w") as f:
             json.dump([entry.serialize() for entry in self.memory], f, indent=4)
-            self.add_feed(f"Dumped memory to {self.save_path}", "Recorder")
+            self.add_feed(f"Dumped memory to {filename}", "Recorder")
 
     def start(self):
         self.running = True

@@ -5,9 +5,9 @@ import dash_bootstrap_components as dbc
 import dash_daq as daq
 import numpy as np
 import plotly.io as pio
-from dash import html, dcc
+from dash import html, dcc, ctx
 from dash.dash_table import DataTable
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.CRITICAL)
@@ -25,6 +25,7 @@ class Dashboard:
         func_clear_error,
         func_reconnect,
         func_save,
+        func_load,
         func_stop,
         func_bundle,
         set_speed_joint,
@@ -42,6 +43,7 @@ class Dashboard:
         self.func_clear_error = func_clear_error
         self.func_reconnect = func_reconnect
         self.func_save = func_save
+        self.func_load = func_load
         self.func_stop = func_stop
         self.func_bundle = func_bundle
         self.set_speed_joint = set_speed_joint
@@ -62,6 +64,8 @@ class Dashboard:
                     interval=200,
                     n_intervals=0,
                 ),
+                self.memory_modal("save"),
+                self.memory_modal("load"),
                 dbc.Row(
                     dbc.Col(
                         html.H1(
@@ -78,6 +82,12 @@ class Dashboard:
                                     dbc.Button(
                                         "Save Memory",
                                         id="save-memory-button",
+                                        color="success",
+                                        className="mr-1",
+                                    ),
+                                    dbc.Button(
+                                        "Load Memory",
+                                        id="load-memory-button",
                                         color="success",
                                         className="mr-1",
                                     ),
@@ -107,14 +117,6 @@ class Dashboard:
                                         color="warning",
                                         className="mr-1",
                                     ),
-                                ],
-                                gap=3,
-                            ),
-                            width=1,
-                        ),
-                        dbc.Col(
-                            dbc.Stack(
-                                [
                                     dbc.Button(
                                         "Stop",
                                         id="stop-button",
@@ -142,7 +144,7 @@ class Dashboard:
                                 ],
                                 gap=3,
                             ),
-                            width=3,
+                            width=4,
                         ),
                         dbc.Col(
                             dbc.Stack(
@@ -286,8 +288,54 @@ class Dashboard:
             data = [el.serialize() for el in reversed(self.get_feed())]
             return data
 
+        @self.app.callback(
+            Output("save-modal", "is_open"),
+            [
+                Input("save-memory-button", "n_clicks"),
+                Input("save-modal-cancel-button", "n_clicks"),
+                Input("save-modal-save-button", "n_clicks"),
+            ],
+            [
+                State("save-modal", "is_open"),
+                State("save-modal-filename-input", "value"),
+            ],
+            prevent_initial_callback=True,
+        )
+        def save_memory(n_save_outer, n_cancel, n_save_inner, is_open, filename):
+            if n_save_outer or n_save_inner or n_cancel:
+                if n_save_inner and ctx.triggered_id == "save-modal-save-button":
+                    self.func_save(filename)
+                return not is_open
+
+            return dash.no_update
+
+        @self.app.callback(
+            [
+                Output("load-modal", "is_open"),
+                Output("load-modal-filename-alert", "is_open"),
+            ],
+            [
+                Input("load-memory-button", "n_clicks"),
+                Input("load-modal-cancel-button", "n_clicks"),
+                Input("load-modal-load-button", "n_clicks"),
+            ],
+            [
+                State("load-modal", "is_open"),
+                State("load-modal-filename-input", "value"),
+            ],
+            prevent_initial_callback=True,
+        )
+        def load_memory(n_load_outer, n_cancel, n_load_inner, is_open, filename):
+            if n_load_outer or n_load_inner or n_cancel:
+                if n_load_inner and ctx.triggered_id == "load-modal-load-button":
+                    result = self.func_load(filename)
+                    return not result, not result
+                else:
+                    return not is_open, False
+
+            return dash.no_update
+
         self.button_callback("clear-error-button", self.func_clear_error)
-        self.button_callback("save-memory-button", self.func_save)
         self.button_callback("stop-button", self.func_stop)
         self.button_callback("bundle-button", self.func_bundle)
         self.button_callback("reconnect-button", self.func_reconnect)
@@ -323,7 +371,7 @@ class Dashboard:
                     columns=[{"name": i, "id": i} for i in columns],
                     data=[],
                     style_table={
-                        "maxHeight": "60vh",
+                        "maxHeight": "55vh",
                         "overflowY": "scroll",
                     },
                     style_cell={
@@ -402,6 +450,46 @@ class Dashboard:
                     width=7,
                 ),
             ],
+        )
+
+    def memory_modal(self, prefix: str):
+        return dbc.Modal(
+            [
+                dbc.ModalHeader(f"{prefix.capitalize()} Memory"),
+                dbc.ModalBody(
+                    [
+                        dbc.Input(
+                            id=f"{prefix}-modal-filename-input",
+                            placeholder="Enter filename",
+                            type="text",
+                        ),
+                        dbc.Alert(
+                            "File not found",
+                            color="danger",
+                            is_open=False,
+                            id=f"{prefix}-modal-filename-alert",
+                        )
+                        if prefix == "load"
+                        else None,
+                    ]
+                ),
+                dbc.ModalFooter(
+                    [
+                        dbc.Button(
+                            prefix.capitalize(),
+                            id=f"{prefix}-modal-{prefix}-button",
+                            className="ml-auto",
+                        ),
+                        dbc.Button(
+                            "Cancel",
+                            id=f"{prefix}-modal-cancel-button",
+                            className="ml-auto",
+                        ),
+                    ]
+                ),
+            ],
+            id=f"{prefix}-modal",
+            is_open=False,
         )
 
     def run(self):
