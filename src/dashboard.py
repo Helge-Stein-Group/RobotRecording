@@ -54,7 +54,10 @@ class Dashboard:
         self.status_robot = status_robot
         self.status_controller = status_controller
 
-        self.app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+        self.app = dash.Dash(
+            __name__,
+            external_stylesheets=[dbc.themes.BOOTSTRAP],
+        )
 
         self.app.layout = dbc.Container(
             [
@@ -66,6 +69,7 @@ class Dashboard:
                 ),
                 self.memory_modal("save"),
                 self.memory_modal("load"),
+                self.keymap_modal(),
                 dbc.Row(
                     dbc.Col(
                         html.H1(
@@ -129,6 +133,10 @@ class Dashboard:
                             width=1,
                         ),
                         dbc.Col(
+                            dbc.Button("Keymap", id="keymap-button", className="mr-1"),
+                            width=1,
+                        ),
+                        dbc.Col(
                             dbc.Stack(
                                 [
                                     self.slider(
@@ -144,7 +152,7 @@ class Dashboard:
                                 ],
                                 gap=3,
                             ),
-                            width=4,
+                            width=3,
                         ),
                         dbc.Col(
                             dbc.Stack(
@@ -340,6 +348,17 @@ class Dashboard:
         self.button_callback("bundle-button", self.func_bundle)
         self.button_callback("reconnect-button", self.func_reconnect)
 
+        @self.app.callback(
+            Output("keymap-modal", "is_open"),
+            [Input("keymap-button", "n_clicks")],
+            [State("keymap-modal", "is_open")],
+            prevent_initial_callback=True,
+        )
+        def keymap(n_clicks, is_open):
+            if n_clicks:
+                return not is_open
+            return dash.no_update
+
     def input_group(self, title, labels, ids):
         def generator(labels, ids):
             for label, idx in zip(labels, ids):
@@ -490,6 +509,19 @@ class Dashboard:
             ],
             id=f"{prefix}-modal",
             is_open=False,
+        )
+
+    def keymap_modal(self):
+        return dbc.Modal(
+            dbc.ModalBody(
+                html.Img(
+                    src=self.app.get_asset_url("keymap.png"),
+                    style={"height": "100%", "width": "100%"},
+                )
+            ),
+            id="keymap-modal",
+            is_open=False,
+            size="xl",
         )
 
     def run(self):
