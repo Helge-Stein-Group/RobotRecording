@@ -213,7 +213,8 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         time.sleep(1)
 
     def bound_movement(self, movement: list):
-        current_angles = self.angles
+        current_angles = self.angles.copy()
+
         if current_angles.size:
             attempted_angles = current_angles + movement
             attempted_angles = np.clip(
@@ -242,18 +243,16 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                     self.mode == MemoryType.MOVEMENT
                     and np.abs(np.sum(bounded_movement)) > 0
                 ):
-                    self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
+                    self.save(MemoryType.MOVEMENT, bounded_movement, MotionType.JOINT)
             except ConnectionAbortedError:
                 self.add_feed("Connection aborted", "Recorder")
 
     def optimize_linear_movement(self):
-        optimized_memory = []
-        for entry in self.memory:
+        optimized_memory = [self.memory[0]]
+        for entry in self.memory[1:]:
             if (
-                entry.type == MemoryType.MOVEMENT
-                and entry.motion_type == MotionType.LINEAR
-                and optimized_memory[-1].type == MemoryType.MOVEMENT
-                and optimized_memory[-1].motion_type == MotionType.LINEAR
+                entry.type == optimized_memory[-1].type == MemoryType.MOVEMENT
+                and entry.motion_type == optimized_memory[-1].motion_type
                 and np.array_equal(
                     np.sign(entry.value), np.sign(optimized_memory[-1].value)
                 )
