@@ -20,12 +20,14 @@ class MemoryEntry:
     type: MemoryType
     value: np.ndarray  # [x, y, z, r] for POINTS, [j1, j2, j3, j4] for MOVEMENTS
     motion_type: MotionType
+    valid: bool = True
 
     def serialize(self):
         return {
             "Type": self.type.name,
             "Value": [float(el) for el in list(self.value)],
             "Motion Type": self.motion_type.name,
+            "Valid": self.valid,
         }
 
     @staticmethod
@@ -34,6 +36,7 @@ class MemoryEntry:
             MemoryType[entry["Type"]],
             np.array(entry["Value"]),
             MotionType[entry["Motion Type"]],
+            entry["Valid"],
         )
 
 

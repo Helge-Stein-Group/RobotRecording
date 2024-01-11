@@ -208,7 +208,14 @@ class Dashboard:
                             self.table(
                                 "Memory",
                                 "memory-table",
-                                ["Type", "X/J1", "Y/J2", "Z/J3", "R/J4", "Motion Type"],
+                                [
+                                    "Type",
+                                    "X/J1",
+                                    "Y/J2",
+                                    "Z/J3",
+                                    "R/J4",
+                                    "Motion Type",
+                                ],
                             ),
                             width=6,
                         ),
@@ -245,18 +252,30 @@ class Dashboard:
             return *self.get_pose(), *self.get_angles()
 
         @self.app.callback(
-            Output("memory-table", "data"),
+            [
+                Output("memory-table", "data"),
+                Output("memory-table", "style_data_conditional"),
+            ],
             [Input("interval", "n_intervals")],
             prevent_initial_callback=True,
         )
         def update_memory(_):
             data = [el.serialize() for el in self.get_memory()]
-            for el in data:
+            data_conditional = []
+            for i, el in enumerate(data):
                 el["X/J1"] = np.round(el["Value"][0], 1)
                 el["Y/J2"] = np.round(el["Value"][1], 1)
                 el["Z/J3"] = np.round(el["Value"][2], 1)
                 el["R/J4"] = np.round(el["Value"][3], 1)
-            return data
+                if not el["Valid"]:
+                    data_conditional.append(
+                        {
+                            "if": {"row_index": i},
+                            "backgroundColor": "red",
+                            "color": "white",
+                        }
+                    )
+            return data, data_conditional
 
         @self.app.callback(
             Output("feed-table", "data"),
@@ -295,7 +314,7 @@ class Dashboard:
             fluid=True,
         )
 
-    def table(self, label, idx, columns):
+    def table(self, label, idx, columns, data_conditional=None, hidden_columns=None):
         return dbc.Container(
             [
                 html.H4(label),
@@ -321,6 +340,8 @@ class Dashboard:
                         "font-family": "sans-serif",
                         "background-color": "white",
                     },
+                    style_data_conditional=data_conditional,
+                    hidden_columns=hidden_columns,
                 ),
             ],
             fluid=True,

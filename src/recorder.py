@@ -260,6 +260,8 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                 optimized_memory[-1].value = np.array(
                     optimized_memory[-1].value
                 ) + np.array(entry.value)
+                if not entry.valid:
+                    optimized_memory[-1].valid = False
             else:
                 optimized_memory.append(entry)
         self.memory = optimized_memory

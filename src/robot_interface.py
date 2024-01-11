@@ -230,7 +230,7 @@ class RobotInterface:
 
     def replay(self, memory):
         self.log_robot("Replaying")
-        for entry in memory:
+        for i, entry in enumerate(memory):
             if entry.type == MemoryType.POINT:
                 if entry.motion_type == MotionType.LINEAR:
                     func = self.move_linear
@@ -248,6 +248,8 @@ class RobotInterface:
                     f"Error replaying from {self.pose if entry.motion_type == MemoryType.POINT else self.angles} "
                 )
                 self.log_robot(f"Error replaying to {entry.value}")
+                for j in range(i, len(memory)):
+                    memory[j].valid = False
                 break
             self._move.Sync()
         self.log_robot("Done Replaying")
