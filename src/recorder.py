@@ -15,9 +15,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         robot_ip: str = "192.168.1.6",
         dashboard_port: int = 29999,
         move_port: int = 30003,
-        feed_port: int = 30004,
         number_of_joints: int = 4,
-        autosave_start: bool = True,
         max_speed: np.ndarray = np.array([5, 5, 5, 15]),
         linear_speed: float = 5,
         keymap: Keymap = None,
@@ -28,27 +26,27 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         ),
         save_path: str = "memory.json",
     ):
-        self.robot_ip = robot_ip
-        self.dashboard_port = dashboard_port
-        self.move_port = move_port
-        self.feed_port = feed_port
         self.number_of_joints = number_of_joints
 
-        self.feed_log = []
+        self.feed = []
         self.memory = []
-        self.current_pose = np.array([0, 0, 0, 0])
-        self.current_angles = np.array([0, 0, 0, 0])
 
-        self.current_joint_pos = 0
-        self.current_joint_neg = 0
-        self.left_joystick = 0
-        self.right_joystick = 0
+        self.displayed_pose = np.array([0, 0, 0, 0])
+        self.displayed_angles = np.array([0, 0, 0, 0])
 
-        self.autosave_start = autosave_start
+        self.controller_buffer = {
+            "joint_pos": 0,
+            "joint_neg": 0,
+            "left_joystick": 0,
+            "right_joystick": 0,
+        }
+
         self.max_speed = max_speed
         self.linear_speed = linear_speed
-        self.left_joystick_joint = left_joystick_joint
-        self.right_joystick_joint = right_joystick_joint
+        self.joystick_mapping = {
+            "left": left_joystick_joint,
+            "right": right_joystick_joint,
+        }
         self.joint_bounds = joint_bounds
         self.save_path = save_path
 
@@ -59,21 +57,15 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         RobotInterface.__init__(
             self,
-            self.robot_ip,
-            self.dashboard_port,
-            self.move_port,
-            self.feed_port,
+            robot_ip,
+            dashboard_port,
+            move_port,
             self.number_of_joints,
             self.add_feed,
         )
         ControllerInterface.__init__(self, keymap, self.add_feed)
         if self.keymap is None:
             self.default_keymap()
-
-        if autosave_start:
-            self.memory.append(
-                MemoryEntry(MemoryType.POINT, self.start_pose, MotionType.JOINT)
-            )
 
         self.set_controls()
         self.indicate_active_joint()
@@ -94,7 +86,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.start()
 
     def add_feed(self, msg: str, source: str):
-        self.feed_log.append(FeedEntry(datetime.now(), msg, source))
+        self.feed.append(FeedEntry(datetime.now(), msg, source))
 
     def save(self, memory_type, value, motion_type):
         entry = MemoryEntry(memory_type, value, motion_type)
@@ -147,21 +139,21 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
             return cycle_joint_func
 
-        def generate_button2_recording_func(attr_str):
+        def generate_button2_recording_func(key):
             def button2_recording_func(state):
                 if state > 5:
-                    self.__setattr__(attr_str, state / 255)
+                    self.controller_buffer[key] = state / 255
                 else:
-                    self.__setattr__(attr_str, 0)
+                    self.controller_buffer[key] = 0
 
             return button2_recording_func
 
-        def generate_joystick_recording_func(attr_str):
+        def generate_joystick_recording_func(key):
             def joystick_recording_func(stateX, stateY):
                 if np.abs(stateX) > 5:
-                    self.__setattr__(attr_str, stateX / 128)
+                    self.controller_buffer[key] = stateX / 128
                 else:
-                    self.__setattr__(attr_str, 0)
+                    self.controller_buffer[key] = 0
 
             return joystick_recording_func
 
@@ -181,10 +173,18 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             circle_pressed=replay_func,
             r1_changed=generate_cycle_joint_func(operator.add),
             l1_changed=generate_cycle_joint_func(operator.sub),
-            r2_changed=generate_button2_recording_func("current_joint_pos"),
-            l2_changed=generate_button2_recording_func("current_joint_neg"),
-            left_joystick_changed=generate_joystick_recording_func("left_joystick"),
-            right_joystick_changed=generate_joystick_recording_func("right_joystick"),
+            r2_changed=generate_button2_recording_func(
+                list(self.controller_buffer.keys())[0]
+            ),
+            l2_changed=generate_button2_recording_func(
+                list(self.controller_buffer.keys())[1]
+            ),
+            left_joystick_changed=generate_joystick_recording_func(
+                list(self.controller_buffer.keys())[2]
+            ),
+            right_joystick_changed=generate_joystick_recording_func(
+                list(self.controller_buffer.keys())[3]
+            ),
             dpad_up=generate_linear_move_func([-self.linear_speed, 0, 0, 0]),
             dpad_down=generate_linear_move_func([self.linear_speed, 0, 0, 0]),
             dpad_left=generate_linear_move_func([0, -self.linear_speed, 0, 0]),
@@ -225,25 +225,25 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             raise Exception("No angles available")
 
     def move_robot(self):
-        current_joint = self.current_joint_pos - self.current_joint_neg
         movement = [0] * self.number_of_joints
-        movement[self.active_joint] = current_joint * self.max_speed[self.active_joint]
-        movement[self.left_joystick_joint] += (
-            self.left_joystick * self.max_speed[self.left_joystick_joint]
+        movement[self.active_joint] = (
+            self.controller_buffer["joint_pos"] - self.controller_buffer["joint_neg"]
+        ) * self.max_speed[self.active_joint]
+        movement[self.joystick_mapping["left"]] += (
+            self.controller_buffer["left_joystick"]
+            * self.max_speed[self.joystick_mapping["left"]]
         )
-        movement[self.right_joystick_joint] += (
-            self.right_joystick * self.max_speed[self.right_joystick_joint]
+        movement[self.joystick_mapping["right"]] += (
+            self.controller_buffer["right_joystick"]
+            * self.max_speed[self.joystick_mapping["right"]]
         )
-        bounded_movement = self.bound_movement(movement)
-        bounded_movement = np.where(np.abs(bounded_movement) < 0.5, 0, bounded_movement)
-        if np.any(bounded_movement):
+        movement = self.bound_movement(movement)
+        movement = np.where(np.abs(movement) < 0.5, 0, movement)
+        if np.any(movement):
             try:
-                self.move_joint_relative(bounded_movement)
-                if (
-                    self.mode == MemoryType.MOVEMENT
-                    and np.abs(np.sum(bounded_movement)) > 0
-                ):
-                    self.save(MemoryType.MOVEMENT, bounded_movement, MotionType.JOINT)
+                self.move_joint_relative(movement)
+                if self.mode == MemoryType.MOVEMENT and np.abs(np.sum(movement)) > 0:
+                    self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
             except ConnectionAbortedError:
                 self.add_feed("Connection aborted", "Recorder")
 
@@ -268,17 +268,5 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         while self.running:
             for _ in range(10):
                 self.move_robot()
-            self.current_pose[:] = self.pose
-            self.current_angles[:] = self.angles
-
-
-if __name__ == "__main__":
-    recorder = RobotRecorder()
-    recorder.start()
-
-    time.sleep(1)
-    print("Reconnecting")
-    recorder.reconnect()
-    print("Reconnected")
-    time.sleep(10)
-    recorder.stop()
+            self.displayed_pose[:] = self.pose
+            self.displayed_angles[:] = self.angles

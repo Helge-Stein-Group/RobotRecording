@@ -19,29 +19,24 @@ class RobotInterface:
         robot_ip: str = "192.168.1.6",
         dashboard_port: int = 29999,
         move_port: int = 30003,
-        feed_port: int = 30004,
         number_of_joints: int = 4,
         print_function: callable = print,
     ):
         self._dashboard = None
         self._move = None
-        self.feed = None  # unused
 
         self.dashboard_lock = threading.Lock()
 
         self.robot_ip = robot_ip
-        self.identifier = robot_ip.split(".")[1]
+        self.identifier = robot_ip.split(".")[-1]
         self.dashboard_port = dashboard_port
         self.move_port = move_port
-        self.feed_port = feed_port
         self.error_translation = json.load(
             open("../data/translation.json", "r"),
         )
         self.error_translation = {int(k): v for k, v in self.error_translation.items()}
 
         self.number_of_joints = number_of_joints
-
-        self.start_pose = np.array([0, 0, 220, 0])
 
         self.print_function = print_function
 
@@ -55,7 +50,6 @@ class RobotInterface:
                 self.robot_ip, self.dashboard_port, False
             )
             self._move = DobotApiMove(self.robot_ip, self.move_port, False)
-            self.feed = DobotApi(self.robot_ip, self.feed_port)
             self.log_robot("Connection successful")
         except Exception as e:
             self.log_robot("Connection failure")
@@ -66,7 +60,6 @@ class RobotInterface:
             self._dashboard.ClearError()
             time.sleep(0.5)
             self._dashboard.EnableRobot()
-            self._dashboard.SpeedJ(100)
 
     def reconnect(self):
         self.log_robot("Connection lost")
@@ -80,7 +73,6 @@ class RobotInterface:
         with self.dashboard_lock:
             self._dashboard.close()
         self._move.close()
-        self.feed.close()
 
     def move_joint(self, cartesian_coordinates):
         self._move.MovJ(*cartesian_coordinates)

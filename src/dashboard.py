@@ -17,23 +17,23 @@ pio.templates.default = "plotly_white"
 
 class Dashboard:
     def __init__(
-            self,
-            get_pose,
-            get_angles,
-            get_memory,
-            get_feed,
-            func_clear_error,
-            func_reconnect,
-            func_save,
-            func_stop,
-            func_bundle,
-            set_speed_joint,
-            set_speed_linear,
-            set_acc_joint,
-            set_acc_linear,
-            status_recorder,
-            status_robot,
-            status_controller,
+        self,
+        get_pose,
+        get_angles,
+        get_memory,
+        get_feed,
+        func_clear_error,
+        func_reconnect,
+        func_save,
+        func_stop,
+        func_bundle,
+        set_speed_joint,
+        set_speed_linear,
+        set_acc_joint,
+        set_acc_linear,
+        status_recorder,
+        status_robot,
+        status_controller,
     ):
         self.get_pose = get_pose
         self.get_angles = get_angles
@@ -56,6 +56,7 @@ class Dashboard:
 
         self.app.layout = dbc.Container(
             [
+                # IMPORTANT updates the page every 200ms
                 dcc.Interval(
                     id="interval",
                     interval=200,
@@ -128,8 +129,16 @@ class Dashboard:
                         dbc.Col(
                             dbc.Stack(
                                 [
-                                    self.slider("Speed Joint", "speed-joint-slider", set_speed_joint),
-                                    self.slider("Speed Linear", "speed-linear-slider", set_speed_linear),
+                                    self.slider(
+                                        "Speed Joint",
+                                        "speed-joint-slider",
+                                        set_speed_joint,
+                                    ),
+                                    self.slider(
+                                        "Speed Linear",
+                                        "speed-linear-slider",
+                                        set_speed_linear,
+                                    ),
                                 ],
                                 gap=3,
                             ),
@@ -138,28 +147,57 @@ class Dashboard:
                         dbc.Col(
                             dbc.Stack(
                                 [
-                                    self.slider("Acceleration Joint", "acc-joint-slider", self.set_acc_joint),
-                                    self.slider("Acceleration Linear", "acc-linear-slider", self.set_acc_linear),
+                                    self.slider(
+                                        "Acceleration Joint",
+                                        "acc-joint-slider",
+                                        self.set_acc_joint,
+                                    ),
+                                    self.slider(
+                                        "Acceleration Linear",
+                                        "acc-linear-slider",
+                                        self.set_acc_linear,
+                                    ),
                                 ],
                                 gap=3,
                             ),
                             width=3,
                         ),
-                        dbc.Col(self.indicator("Recorder", "recorder-status", self.status_recorder), width=1, ),
-                        dbc.Col(self.indicator("Robot", "robot-status", self.status_robot), width=1, ),
-                        dbc.Col(self.indicator("Controller", "controller-status", self.status_controller), width=1, ),
+                        dbc.Col(
+                            self.indicator(
+                                "Recorder", "recorder-status", self.status_recorder
+                            ),
+                            width=1,
+                        ),
+                        dbc.Col(
+                            self.indicator("Robot", "robot-status", self.status_robot),
+                            width=1,
+                        ),
+                        dbc.Col(
+                            self.indicator(
+                                "Controller",
+                                "controller-status",
+                                self.status_controller,
+                            ),
+                            width=1,
+                        ),
                     ]
                 ),
                 dbc.Row(
                     [
                         dbc.Col(
-                            self.input_group("Pose", ["X", "Y", "Z", "R"],
-                                             [f"pose-{i}-input" for i in ["x", "y", "z", "r"]]),
+                            self.input_group(
+                                "Pose",
+                                ["X", "Y", "Z", "R"],
+                                [f"pose-{i}-input" for i in ["x", "y", "z", "r"]],
+                            ),
                             width=6,
                         ),
                         dbc.Col(
-                            self.input_group("Angles", [f"J{i}" for i in range(1, 5)],
-                                             [f"angles-j{i}-input" for i in range(1, 5)]),
+                            self.input_group(
+                                "Angles",
+                                [f"J{i}" for i in range(1, 5)],
+                                [f"angles-j{i}-input" for i in range(1, 5)],
+                            ),
                             width=6,
                         ),
                     ]
@@ -167,12 +205,21 @@ class Dashboard:
                 dbc.Row(
                     [
                         dbc.Col(
-                            self.table("Memory", "memory-table",
-                                       ["Type", "X/J1", "Y/J2", "Z/J3", "R/J4", "Motion Type"]),
+                            self.table(
+                                "Memory",
+                                "memory-table",
+                                ["Type", "X/J1", "Y/J2", "Z/J3", "R/J4", "Motion Type"],
+                            ),
                             width=6,
                         ),
                         dbc.Col(
-                            self.table("Feed Log", "feed-table", ["Timestamp", "Message", "Source"]), width=6),
+                            self.table(
+                                "Feed Log",
+                                "feed-table",
+                                ["Timestamp", "Message", "Source"],
+                            ),
+                            width=6,
+                        ),
                     ]
                 ),
             ],
@@ -237,13 +284,16 @@ class Dashboard:
                     value=0,
                 )
 
-        return dbc.Container([
-            html.H4(title),
-            dbc.InputGroup(
-                list(generator(labels, ids)),
-                className="mb-3",
-            ),
-        ], fluid=True)
+        return dbc.Container(
+            [
+                html.H4(title),
+                dbc.InputGroup(
+                    list(generator(labels, ids)),
+                    className="mb-3",
+                ),
+            ],
+            fluid=True,
+        )
 
     def table(self, label, idx, columns):
         return dbc.Container(
@@ -251,10 +301,7 @@ class Dashboard:
                 html.H4(label),
                 DataTable(
                     id=idx,
-                    columns=[
-                        {"name": i, "id": i}
-                        for i in columns
-                    ],
+                    columns=[{"name": i, "id": i} for i in columns],
                     data=[],
                     style_table={
                         "maxHeight": "60vh",
@@ -275,7 +322,9 @@ class Dashboard:
                         "background-color": "white",
                     },
                 ),
-            ], fluid=True)
+            ],
+            fluid=True,
+        )
 
     def button_callback(self, idx, func):
         @self.app.callback(

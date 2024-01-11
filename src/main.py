@@ -3,15 +3,15 @@ from recorder import RobotRecorder
 import time
 
 if __name__ == "__main__":
-    recorder = RobotRecorder(autosave_start=False)
+    recorder = RobotRecorder()
     time.sleep(1)
     recorder.start()
 
     dashboard = Dashboard(
-        lambda: recorder.current_pose,  # lambda is necessary to update address of variable
-        lambda: recorder.current_angles,
+        lambda: recorder.displayed_pose,  # lambda is necessary to update address of variable
+        lambda: recorder.displayed_angles,
         lambda: recorder.memory,
-        lambda: recorder.feed_log,
+        lambda: recorder.feed,
         recorder.clear_error,
         recorder.reconnect,
         recorder.dump_memory,
