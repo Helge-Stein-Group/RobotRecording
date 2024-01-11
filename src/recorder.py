@@ -238,7 +238,10 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         if np.any(bounded_movement):
             try:
                 self.move_joint_relative(bounded_movement)
-                if self.mode == MemoryType.MOVEMENT and np.sum(movement) > 0:
+                if (
+                    self.mode == MemoryType.MOVEMENT
+                    and np.abs(np.sum(bounded_movement)) > 0
+                ):
                     self.save(MemoryType.MOVEMENT, movement, MotionType.JOINT)
             except ConnectionAbortedError:
                 self.add_feed("Connection aborted", "Recorder")
