@@ -26,9 +26,12 @@ To connect the controller to your computer, you have two options:
 
 The setup requires an exisiting python installation with pip and firefox.
 
-1. To setup simply call setup.bat, The setup script will install all required dependencies and create a virtual
-   environment. Moreover, it creates RobotRecording batch script on your desktop
-2. Double click the RobotRecording batch script to start the application
+1. Clone the repository
+2. Run setup.bat, which
+    3. Creates a virtual environment.
+    4. Installs required dependencies
+    5. Creates RobotRecording batch script on your desktop
+2. Double-click the RobotRecording batch script to start the application
 
 ## Controller Keymap
 
