@@ -38,5 +38,54 @@ The setup requires an exisiting python installation with pip and firefox.
 Refer to the following image for the controller keymap:
 ![keymap.png](doc%2Fkeymap.png)
 
+## Joint Mapping for Dobot M1 Pro
 
+Specific Joint coding for M1 Pro in terms of joint number and color
+![joints.png](doc%2Fjoints.png)
 
+## User-Interface
+
+The tool provides a web interface
+![user_interface.png](doc%2Fuser_interface.png)
+
+## Memory files
+
+The recorded trajectories can be saved and loaded from json files, with the following format.
+
+```
+[
+    {
+        "Type": "POINT",
+        "Value": [
+            279.239335,
+            32.770248,
+            98.500513,
+            -121.842974
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -4.9609375,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            0.0,
+            5.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "LINEAR",
+        "Valid": true
+    },
+]
+```
