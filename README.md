@@ -28,10 +28,13 @@ The setup requires an exisiting python installation with pip and firefox.
 
 1. Clone the repository
 2. Run setup.bat, which
-    3. Creates a virtual environment.
-    4. Installs required dependencies
-    5. Creates RobotRecording batch script on your desktop
-2. Double-click the RobotRecording batch script to start the application
+   
+    2.1 Creates a virtual environment.
+   
+    2.2 Installs required dependencies
+   
+    2.3 Creates RobotRecording batch script on your desktop
+4. Double-click the RobotRecording batch script to start the application
 
 ## Controller Keymap
 
