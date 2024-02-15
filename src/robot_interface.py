@@ -1,16 +1,11 @@
+import re
 import json
 import time
-import re
-
-import numpy as np
-
-from include.dobot_api import (
-    DobotApiDashboard,
-    DobotApi,
-    DobotApiMove,
-)
-from utils import MemoryType, MotionType
 import threading
+import numpy as np
+from utils import MemoryType, MotionType
+
+from include.dobot_api import DobotApiDashboard, DobotApiMove
 
 
 class RobotInterface:
@@ -32,7 +27,7 @@ class RobotInterface:
         self.dashboard_port = dashboard_port
         self.move_port = move_port
         self.error_translation = json.load(
-            open("../data/translation.json", "r"),
+            open("../data/error_codes.json", "r"),
         )
         self.error_translation = {int(k): v for k, v in self.error_translation.items()}
 
