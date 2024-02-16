@@ -3,12 +3,50 @@ import json
 import time
 import threading
 import numpy as np
-from utils import MemoryType, MotionType
 
+from utils import MemoryType, MotionType
 from include.dobot_api import DobotApiDashboard, DobotApiMove
 
 
 class RobotInterface:
+    """
+    A class representing a robot interface.
+
+    Attributes:
+        robot_ip (str): The IP address of the robot.
+        dashboard_port (int): The port number for the dashboard connection.
+        move_port (int): The port number for the move connection.
+        number_of_joints (int): The number of joints in the robot.
+        print_function (callable): The function used for printing log messages.
+
+    Methods:
+        __init__: Initializes the RobotInterface object.
+        connect_robot: Connects to the robot.
+        init_robot: Initializes the robot.
+        reconnect: Reconnects to the robot.
+        close_robot: Closes the robot connection.
+        move_joint: Moves the robot to the specified joint coordinates.
+        move_linear: Moves the robot to the specified linear coordinates.
+        move_joint_relative: Moves the robot relative to the current joint coordinates.
+        move_linear_relative: Moves the robot relative to the current linear coordinates.
+        robot_is_alive: Checks if the robot is alive.
+        set_joint_speed: Sets the joint speed of the robot.
+        set_linear_speed: Sets the linear speed of the robot.
+        set_joint_acceleration: Sets the joint acceleration of the robot.
+        set_linear_acceleration: Sets the linear acceleration of the robot.
+        log_robot: Logs a message with the robot identifier.
+        clear_error: Clears the error on the robot.
+        nonblocking_move: Performs a non-blocking move operation on the robot.
+        extract_metavalues: Extracts the return value and method name from a string.
+        extract_error_codes: Extracts the error codes from a string.
+        extract_pose: Extracts the pose from a string.
+        extract_angles: Extracts the angles from a string.
+        pose: Property that returns the current pose of the robot.
+        angles: Property that returns the current angles of the robot.
+        error_id: Property that returns the error codes of the robot.
+        replay: Replays a sequence of robot movements.
+    """
+    
     def __init__(
         self,
         robot_ip: str = "192.168.1.6",
@@ -17,6 +55,16 @@ class RobotInterface:
         number_of_joints: int = 4,
         print_function: callable = print,
     ):
+        """
+        Initializes the RobotInterface object.
+
+        Args:
+            robot_ip (str): The IP address of the robot.
+            dashboard_port (int): The port number for the dashboard connection.
+            move_port (int): The port number for the move connection.
+            number_of_joints (int): The number of joints in the robot.
+            print_function (callable): The function used for printing log messages.
+        """
         self._dashboard = None
         self._move = None
 
@@ -38,7 +86,19 @@ class RobotInterface:
         self.connect_robot()
         self.init_robot()
 
+
     def connect_robot(self):
+        """
+        Connects to the robot.
+
+        This function establishes a connection with the robot using the specified IP address and ports.
+        It initializes the DobotApiDashboard and DobotApiMove objects for communication with the robot.
+        If the connection is successful, it logs a success message. Otherwise, it logs a failure message and raises an exception.
+
+        Raises:
+            Exception: If the connection to the robot fails.
+
+        """
         try:
             self.log_robot("Connecting")
             self._dashboard = DobotApiDashboard(
@@ -51,12 +111,32 @@ class RobotInterface:
             raise e
 
     def init_robot(self):
+        """
+        Initializes the robot by clearing any errors and enabling the robot. (Thread-safe)
+        """
         with self.dashboard_lock:
             self._dashboard.ClearError()
             time.sleep(0.5)
             self._dashboard.EnableRobot()
+    
+    def robot_is_alive(self):
+        """
+        Check if the robot is alive by attempting to get its pose from the dashboard. (Thread-safe)
+
+        Returns:
+            bool: True if the robot is alive, False otherwise.
+        """
+        try:
+            with self.dashboard_lock:
+                self._dashboard.GetPose()
+            return True
+        except:
+            return False
 
     def reconnect(self):
+        """
+        Reconnects to the robot.
+        """
         self.log_robot("Connection lost")
         self.log_robot("Trying to reconnect")
         self.close_robot()
@@ -65,65 +145,87 @@ class RobotInterface:
         self.init_robot()
 
     def close_robot(self):
+        """
+        Closes the robot connection. (Thread-safe)
+        """
         with self.dashboard_lock:
             self._dashboard.close()
         self._move.close()
 
-    def move_joint(self, cartesian_coordinates):
-        self._move.MovJ(*cartesian_coordinates)
-        self._move.Sync()
-
-    def move_linear(self, cartesian_coordinates):
-        self._move.MovL(*cartesian_coordinates)
-        self._move.Sync()
-
-    def move_joint_relative(self, movement):
-        self._move.RelMovJ(*movement)
-        self._move.Sync()
-
-    def move_linear_relative(self, movement):
-        self._move.RelMovL(*movement)
-        self._move.Sync()
-
-    def robot_is_alive(self):
-        try:
-            with self.dashboard_lock:
-                self._dashboard.GetPose()
-            return True
-        except:
-            return False
-
-    def set_joint_speed(self, speed):
-        self.log_robot(f"Setting joint speed to {speed}")
-        with self.dashboard_lock:
-            self._dashboard.SpeedJ(int(speed))
-
-    def set_linear_speed(self, speed):
-        self.log_robot(f"Setting linear speed to {speed}")
-        with self.dashboard_lock:
-            self._dashboard.SpeedL(int(speed))
-
-    def set_joint_acceleration(self, acceleration):
-        self.log_robot(f"Setting joint acceleration to {acceleration}")
-        with self.dashboard_lock:
-            self._dashboard.AccJ(int(acceleration))
-
-    def set_linear_acceleration(self, acceleration):
-        self.log_robot(f"Setting linear acceleration to {acceleration}")
-        with self.dashboard_lock:
-            self._dashboard.AccL(int(acceleration))
-
     def log_robot(self, msg: str):
+        """
+        Logs a message with the robot identifier.
+
+        Args:
+            msg (str): The message to be logged.
+        """
         self.print_function(msg, f"Robot {self.identifier}")
 
     def clear_error(self):
+        """
+        Clears the error on the robot. (Thread-safe)
+
+        Note:
+            This method requires the robot to be connected and the dashboard to be accessible.
+        """
         self.log_robot("Clearing error (" + str(self.error_id) + ")")
         with self.dashboard_lock:
             self._dashboard.ClearError()
             time.sleep(0.5)
             self._dashboard.EnableRobot()
 
+    def move_joint(self, cartesian_coordinates):
+        """
+        Moves the robot to the specified joint positions.
+
+        Args:
+            cartesian_coordinates (tuple): A tuple of canonical coordinates.
+        """
+        self._move.MovJ(*cartesian_coordinates)
+        self._move.Sync()
+
+    def move_linear(self, cartesian_coordinates):
+        """
+        Moves the robot to the specified linear coordinates.
+
+        Args:
+            cartesian_coordinates (tuple): A tuple of canonical coordinates.
+        """
+        self._move.MovL(*cartesian_coordinates)
+        self._move.Sync()
+
+    def move_joint_relative(self, movement):
+        """
+        Moves the robot relative to the current joint positions.
+
+        Args:
+            movement (tuple): A tuple of relative joint movements.
+        """
+        self._move.RelMovJ(*movement)
+        self._move.Sync()
+
+    def move_linear_relative(self, movement):
+        """
+        Moves the robot relative to the current linear coordinates.
+
+        Args:
+            movement (tuple): A tuple of relative linear movements.
+        """
+        self._move.RelMovL(*movement)
+        self._move.Sync()
+
     def nonblocking_move(self, func, params) -> bool:
+        """
+        Executes the given function with the provided parameters in a non-blocking manner. Which means checking and potentially
+        clearing for robot errors.
+
+        Args:
+            func (callable): The function to be executed.
+            params (tuple): The parameters to be passed to the function.
+
+        Returns:
+            bool: True if the function executed successfully without any errors, False otherwise.
+        """
         func(params)
         if len(self.error_id):
             self.log_robot(f"Invalid movement [{self.error_id}]")
@@ -131,16 +233,77 @@ class RobotInterface:
             return False
         return True
 
-    def extract_metavalues(self, s):
-        # Extract the return value
-        return_value = int(s.split(",")[0])
+    def set_joint_speed(self, speed):
+        """
+        Sets the joint speed of the robot. (Thread-safe)
 
-        # Extract the method name
+        Args:
+            speed (int): The desired joint speed.
+        """
+        self.log_robot(f"Setting joint speed to {speed}")
+        with self.dashboard_lock:
+            self._dashboard.SpeedJ(int(speed))
+
+    def set_linear_speed(self, speed):
+        """
+        Sets the linear speed of the robot. (Thread-safe)
+
+        Args:
+            speed (int): The desired linear speed.
+        """
+        self.log_robot(f"Setting linear speed to {speed}")
+        with self.dashboard_lock:
+            self._dashboard.SpeedL(int(speed))
+
+    def set_joint_acceleration(self, acceleration):
+        """
+        Sets the joint acceleration of the robot. (Thread-safe)
+
+        Args:
+            acceleration (int): The desired joint acceleration.
+        """
+        self.log_robot(f"Setting joint acceleration to {acceleration}")
+        with self.dashboard_lock:
+            self._dashboard.AccJ(int(acceleration))
+
+    def set_linear_acceleration(self, acceleration):
+        """
+        Sets the linear acceleration of the robot. (Thread-safe)
+
+        Args:
+            acceleration (int): The desired linear acceleration value. 
+        """
+        self.log_robot(f"Setting linear acceleration to {acceleration}")
+        with self.dashboard_lock:
+            self._dashboard.AccL(int(acceleration))
+
+
+
+    def extract_metavalues(self, s):
+        """
+        Extracts the return value and method name from the dobot call.
+
+        Args:
+            s (str): The input string.
+
+        Returns:
+            tuple: A tuple containing the return value and method name extracted from the input string.
+        """
+        return_value = int(s.split(",")[0])
         method_name = re.search(r"\b\w+\b(?=\(\);)", s).group()
 
         return return_value, method_name
 
     def extract_error_codes(self, s):
+        """
+        Extracts error codes from the dobot call.
+
+        Args:
+            s (str): The input string.
+
+        Returns:
+            list: A list of error codes extracted from the input string.
+        """
         error_codes_str = s[s.find("[") : s.rfind("]") + 1]
         error_codes = json.loads(error_codes_str)
 
@@ -148,6 +311,15 @@ class RobotInterface:
         return error_codes
 
     def extract_pose(self, s):
+        """
+        Extracts the pose from the dobot call.
+
+        Args:
+            s (str): The string representation of the pose.
+
+        Returns:
+            tuple: A tuple containing the extracted pose values.
+        """
         return np.fromstring(s[s.find("{") + 1 : s.find("}")], sep=",")[
             : self.number_of_joints
         ]
@@ -160,7 +332,13 @@ class RobotInterface:
     @property
     def pose(self):
         """
-        return pose in [x, y, z, r] format
+        Returns the pose of the robot in [x, y, z, r] format. (Thread-safe)
+
+        Returns:
+            numpy.ndarray: The pose of the robot as a numpy array.
+
+        Raises:
+            Exception: If there is an error getting the pose.
         """
         try:
             with self.dashboard_lock:
@@ -181,7 +359,13 @@ class RobotInterface:
     @property
     def angles(self):
         """
-        return angles in [j1, j2, j3, j4] format
+        Returns the angles of the robot in [j1, j2, j3, j4] format. (Thread-safe)
+
+        Returns:
+            numpy.ndarray: An array containing the angles of the robot in [j1, j2, j3, j4] format.
+        
+        Raises:
+            Exception: If there is an error getting the angles.
         """
         try:
             with self.dashboard_lock:
@@ -200,6 +384,14 @@ class RobotInterface:
 
     @property
     def error_id(self):
+        """
+        Retrieves the error codes and their translations from the robot's dashboard. (Thread-safe)
+
+        Returns:
+            A list of error code translations. If there are no error codes or an error occurs during retrieval,
+            an empty list is returned.
+        """
+        
         try:
             with self.dashboard_lock:
                 result = self._dashboard.GetErrorID()
@@ -216,14 +408,20 @@ class RobotInterface:
                 return translations
             else:
                 self.log_robot(f"Error extracting error codes {result}")
-        except Exception as e:
-            self.log_robot(f"Error getting error id {e}")
-            print("Result", result)
         except json.decoder.JSONDecodeError:
             self.log_robot(f"Error in JSON parsing")
             return []
+        except Exception as e:
+            self.log_robot(f"Error getting error id {e}")
+            print("Result", result)
 
     def replay(self, memory):
+        """
+        Replays a sequence of robot movements stored in the memory.
+
+        Args:
+            memory (list): A list of memory entries representing the robot movements.
+        """
         self.log_robot("Replaying")
         for i, entry in enumerate(memory):
             if entry.type == MemoryType.POINT:
