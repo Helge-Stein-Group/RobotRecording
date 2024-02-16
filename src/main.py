@@ -1,9 +1,11 @@
+import time
+from utils import GripperPins
 from dashboard import Dashboard
 from recorder import RobotRecorder
-import time
+
 
 if __name__ == "__main__":
-    recorder = RobotRecorder()
+    recorder = RobotRecorder(end_effector_pins=GripperPins(1,2))
     time.sleep(1)
     recorder.start()
 
@@ -17,7 +19,7 @@ if __name__ == "__main__":
         recorder.dump_memory,
         recorder.load_memory,
         recorder.stop,
-        recorder.optimize_linear_movement,
+        recorder.optimize_relative_movement,
         recorder.set_joint_speed,
         recorder.set_linear_speed,
         recorder.set_joint_acceleration,

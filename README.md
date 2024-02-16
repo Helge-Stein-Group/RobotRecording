@@ -58,7 +58,7 @@ The recorded trajectories can be saved and loaded from json files, with the foll
 ```
 [
     {
-        "Type": "POINT",
+        "Type": "ABSOLUTE",
         "Value": [
             279.239335,
             32.770248,
@@ -69,7 +69,7 @@ The recorded trajectories can be saved and loaded from json files, with the foll
         "Valid": true
     },
     {
-        "Type": "MOVEMENT",
+        "Type": "RELATIVE",
         "Value": [
             -4.9609375,
             0.0,
@@ -80,7 +80,7 @@ The recorded trajectories can be saved and loaded from json files, with the foll
         "Valid": true
     },
     {
-        "Type": "MOVEMENT",
+        "Type": "RELATIVE",
         "Value": [
             0.0,
             5.0,

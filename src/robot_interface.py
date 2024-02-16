@@ -4,7 +4,7 @@ import time
 import threading
 import numpy as np
 
-from utils import MemoryType, MotionType
+from utils import MemoryType, MotionType, EndEffectorPins
 from include.dobot_api import DobotApiDashboard, DobotApiMove
 
 
@@ -18,6 +18,7 @@ class RobotInterface:
         move_port (int): The port number for the move connection.
         number_of_joints (int): The number of joints in the robot.
         print_function (callable): The function used for printing log messages.
+        end_effector_ports (EndEffectorPins): The end effector pins of the robot.
 
     Methods:
         __init__: Initializes the RobotInterface object.
@@ -25,8 +26,8 @@ class RobotInterface:
         init_robot: Initializes the robot.
         reconnect: Reconnects to the robot.
         close_robot: Closes the robot connection.
-        move_joint: Moves the robot to the specified joint coordinates.
-        move_linear: Moves the robot to the specified linear coordinates.
+        move_joint_absolute: Moves the robot to the specified joint coordinates.
+        move_linear_absolute: Moves the robot to the specified linear coordinates.
         move_joint_relative: Moves the robot relative to the current joint coordinates.
         move_linear_relative: Moves the robot relative to the current linear coordinates.
         robot_is_alive: Checks if the robot is alive.
@@ -54,6 +55,7 @@ class RobotInterface:
         move_port: int = 30003,
         number_of_joints: int = 4,
         print_function: callable = print,
+        end_effector_pins: EndEffectorPins = None,
     ):
         """
         Initializes the RobotInterface object.
@@ -82,6 +84,8 @@ class RobotInterface:
         self.number_of_joints = number_of_joints
 
         self.print_function = print_function
+
+        self.end_effector_pins = end_effector_pins
 
         self.connect_robot()
         self.init_robot()
@@ -182,8 +186,26 @@ class RobotInterface:
             value (int): The value to be set.
         """
         self._dashboard.DO(index, value)
+    
+    def open_gripper(self):
+        """
+        Opens the gripper.
+        """
+        self.set_digital_output(self.end_effector_pins.direction_pin, 0)
+        self.set_digital_output(self.end_effector_pins.power_pin, 1)
+        time.sleep(0.5)
+        self.set_digital_output(self.end_effector_pins.power_pin, 0)
+    
+    def close_gripper(self):
+        """
+        Closes the gripper.
+        """
+        self.set_digital_output(self.end_effector_pins.direction_pin, 1)
+        self.set_digital_output(self.end_effector_pins.power_pin, 1)
+        time.sleep(0.5)
+        self.set_digital_output(self.end_effector_pins.power_pin, 0)
 
-    def move_joint(self, cartesian_coordinates):
+    def move_joint_absolute(self, cartesian_coordinates):
         """
         Moves the robot to the specified joint positions.
 
@@ -193,7 +215,7 @@ class RobotInterface:
         self._move.MovJ(*cartesian_coordinates)
         self._move.Sync()
 
-    def move_linear(self, cartesian_coordinates):
+    def move_linear_absolute(self, cartesian_coordinates):
         """
         Moves the robot to the specified linear coordinates.
 
@@ -215,10 +237,10 @@ class RobotInterface:
 
     def move_linear_relative(self, movement):
         """
-        Moves the robot relative to the current linear coordinates.
+        Moves the robot relative to the current joint positions linearly.
 
         Args:
-            movement (tuple): A tuple of relative linear movements.
+            movement (tuple): A tuple of relative joint movements.
         """
         self._move.RelMovL(*movement)
         self._move.Sync()
@@ -431,21 +453,24 @@ class RobotInterface:
         """
         self.log_robot("Replaying")
         for i, entry in enumerate(memory):
-            if entry.type == MemoryType.POINT:
+            if entry.type == MemoryType.ABSOLUTE:
                 if entry.motion_type == MotionType.LINEAR:
-                    func = self.move_linear
+                    func = self.move_linear_absolute
                 elif entry.motion_type == MotionType.JOINT:
-                    func = self.move_joint
-            elif entry.type == MemoryType.MOVEMENT:
+                    func = self.move_joint_absolute
+            elif entry.type == MemoryType.RELATIVE:
                 if entry.motion_type == MotionType.LINEAR:
                     func = self.move_linear_relative
                 elif entry.motion_type == MotionType.JOINT:
                     func = self.move_joint_relative
+            elif entry.type == MemoryType.END_EFFECTOR:
+                self.set_digital_output(entry.value[0], entry.value[1])
+                continue
 
             result = self.nonblocking_move(func, entry.value)
             if not result:
                 self.log_robot(
-                    f"Error replaying from {self.pose if entry.motion_type == MemoryType.POINT else self.angles} "
+                    f"Error replaying from {self.pose if entry.motion_type == MemoryType.ABSOLUTE else self.angles} "
                 )
                 self.log_robot(f"Error replaying to {entry.value}")
                 for j in range(i, len(memory)):
