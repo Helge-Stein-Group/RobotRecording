@@ -46,7 +46,7 @@ class RobotInterface:
         error_id: Property that returns the error codes of the robot.
         replay: Replays a sequence of robot movements.
     """
-    
+
     def __init__(
         self,
         robot_ip: str = "192.168.1.6",
@@ -86,7 +86,6 @@ class RobotInterface:
         self.connect_robot()
         self.init_robot()
 
-
     def connect_robot(self):
         """
         Connects to the robot.
@@ -118,7 +117,7 @@ class RobotInterface:
             self._dashboard.ClearError()
             time.sleep(0.5)
             self._dashboard.EnableRobot()
-    
+
     def robot_is_alive(self):
         """
         Check if the robot is alive by attempting to get its pose from the dashboard. (Thread-safe)
@@ -173,6 +172,16 @@ class RobotInterface:
             self._dashboard.ClearError()
             time.sleep(0.5)
             self._dashboard.EnableRobot()
+    
+    def set_digital_output(self, index, value):
+        """
+        Sets the digital output of the robot.
+
+        Args:
+            index (int): The index of the digital output.
+            value (int): The value to be set.
+        """
+        self._dashboard.DO(index, value)
 
     def move_joint(self, cartesian_coordinates):
         """
@@ -271,13 +280,11 @@ class RobotInterface:
         Sets the linear acceleration of the robot. (Thread-safe)
 
         Args:
-            acceleration (int): The desired linear acceleration value. 
+            acceleration (int): The desired linear acceleration value.
         """
         self.log_robot(f"Setting linear acceleration to {acceleration}")
         with self.dashboard_lock:
             self._dashboard.AccL(int(acceleration))
-
-
 
     def extract_metavalues(self, s):
         """
@@ -363,7 +370,7 @@ class RobotInterface:
 
         Returns:
             numpy.ndarray: An array containing the angles of the robot in [j1, j2, j3, j4] format.
-        
+
         Raises:
             Exception: If there is an error getting the angles.
         """
@@ -391,7 +398,7 @@ class RobotInterface:
             A list of error code translations. If there are no error codes or an error occurs during retrieval,
             an empty list is returned.
         """
-        
+
         try:
             with self.dashboard_lock:
                 result = self._dashboard.GetErrorID()
