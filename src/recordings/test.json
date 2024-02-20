@@ -1,0 +1,167 @@
+[
+    {
+        "Type": "POINT",
+        "Value": [
+            279.239335,
+            32.770248,
+            98.500513,
+            -121.842974
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "POINT",
+        "Value": [
+            269.509421,
+            -80.082253,
+            98.500513,
+            -145.085162
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "POINT",
+        "Value": [
+            260.144647,
+            -106.64548,
+            98.500513,
+            -199.474409
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "POINT",
+        "Value": [
+            260.144647,
+            -106.64548,
+            98.500513,
+            -199.474409
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "POINT",
+        "Value": [
+            260.144647,
+            -96.64548,
+            98.500513,
+            -199.474409
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            0.0,
+            5.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "LINEAR",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            0.0,
+            5.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "LINEAR",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            5.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "LINEAR",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -5.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "LINEAR",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -0.546875,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -4.9609375,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -0.625,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -4.9609375,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -0.5859375,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    },
+    {
+        "Type": "MOVEMENT",
+        "Value": [
+            -4.9609375,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Motion Type": "JOINT",
+        "Valid": true
+    }
+]

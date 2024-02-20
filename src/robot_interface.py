@@ -176,7 +176,7 @@ class RobotInterface:
             self._dashboard.ClearError()
             time.sleep(0.5)
             self._dashboard.EnableRobot()
-    
+
     def set_digital_output(self, index, value):
         """
         Sets the digital output of the robot.
@@ -185,25 +185,26 @@ class RobotInterface:
             index (int): The index of the digital output.
             value (int): The value to be set.
         """
-        self._dashboard.DO(index, value)
-    
+        with self.dashboard_lock:
+            self._dashboard.DO(index, value)
+
     def open_gripper(self):
         """
         Opens the gripper.
         """
-        self.set_digital_output(self.end_effector_pins.direction_pin, 0)
-        self.set_digital_output(self.end_effector_pins.power_pin, 1)
-        time.sleep(0.5)
+        self.set_digital_output(self.end_effector_pins.direction_pin, 1)
         self.set_digital_output(self.end_effector_pins.power_pin, 0)
-    
+        time.sleep(0.1)
+        self.set_digital_output(self.end_effector_pins.power_pin, 1)
+
     def close_gripper(self):
         """
         Closes the gripper.
         """
-        self.set_digital_output(self.end_effector_pins.direction_pin, 1)
-        self.set_digital_output(self.end_effector_pins.power_pin, 1)
-        time.sleep(0.5)
+        self.set_digital_output(self.end_effector_pins.direction_pin, 0)
         self.set_digital_output(self.end_effector_pins.power_pin, 0)
+        time.sleep(0.1)
+        self.set_digital_output(self.end_effector_pins.power_pin, 1)
 
     def move_joint_absolute(self, cartesian_coordinates):
         """
@@ -464,7 +465,9 @@ class RobotInterface:
                 elif entry.motion_type == MotionType.JOINT:
                     func = self.move_joint_relative
             elif entry.type == MemoryType.END_EFFECTOR:
-                self.set_digital_output(entry.value[0], entry.value[1])
+                for index, value in entry.value:
+                    self.set_digital_output(index, value)
+                    time.sleep(0.1)
                 continue
 
             result = self.nonblocking_move(func, entry.value)

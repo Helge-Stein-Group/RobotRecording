@@ -171,16 +171,16 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         """
         self.feed.append(FeedEntry(datetime.now(), msg, source))
 
-    def save(self, memory_type: MemoryType, value: np.ndarray, motion_type: MotionType):
+    def save(self, memory_type: MemoryType, motion_type: MotionType, value: np.ndarray):
         """
         Create a memory entry.
 
         Args:
             memory_type (MemoryType): The memory type of the memory entry.
-            value (np.ndarray): The value of the memory entry.
             motion_type (MotionType): The motion type of the memory entry.
+            value (np.ndarray): The value of the memory entry.
         """
-        entry = MemoryEntry(memory_type, value, motion_type)
+        entry = MemoryEntry(memory_type, motion_type, value)
         self.memory.append(entry)
 
     def indicate_active_joint(self):
@@ -228,14 +228,14 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         def save_func(state):
             if state:
-                self.save(MemoryType.ABSOLUTE, self.pose, MotionType.JOINT)
+                self.save(MemoryType.ABSOLUTE, MotionType.JOINT, self.pose)
 
         def mode_func(state):
             if state:
                 if self.mode == MemoryType.ABSOLUTE:
                     self.mode = MemoryType.RELATIVE
                     # QOL
-                    self.save(MemoryType.ABSOLUTE, self.pose, MotionType.JOINT)
+                    self.save(MemoryType.ABSOLUTE, MotionType.JOINT, self.pose)
                 else:
                     self.mode = MemoryType.ABSOLUTE
                 self.indicate_mode()
@@ -244,18 +244,40 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             if state and self.memory:
                 del self.memory[-1]
 
+        def replay_func(state):
+            if state:
+                self.replay(self.memory)
+
         def gripper_func(state):
             if state:
                 if self.end_effector_state == 0:
                     self.end_effector_state = 1
                     self.close_gripper()
+                    self.save(
+                        MemoryType.END_EFFECTOR,
+                        MotionType.GRIPPER,
+                        np.array(
+                            [
+                                [self.end_effector_pins.power_pin, 0],
+                                [self.end_effector_pins.direction_pin, 0],
+                                [self.end_effector_pins.power_pin, 1],
+                            ]
+                        ),
+                    )
                 elif self.end_effector_state == 1:
                     self.end_effector_state = 0
                     self.open_gripper()
-
-        def replay_func(state):
-            if state:
-                self.replay(self.memory)
+                    self.save(
+                        MemoryType.END_EFFECTOR,
+                        MotionType.GRIPPER,
+                        np.array(
+                            [
+                                [self.end_effector_pins.power_pin, 0],
+                                [self.end_effector_pins.direction_pin, 1],
+                                [self.end_effector_pins.power_pin, 1],
+                            ]
+                        ),
+                    )
 
         def generate_cycle_joint_func(op):
             def cycle_joint_func(state):
@@ -288,19 +310,17 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                 if state:
                     result = self.nonblocking_move(self.move_linear_relative, movement)
                     if self.mode == MemoryType.RELATIVE and result:
-                        self.save(MemoryType.RELATIVE, movement, MotionType.LINEAR)
+                        self.save(MemoryType.RELATIVE, MotionType.LINEAR, movement)
 
             return linear_move_func
 
         self.keymap = Keymap(
             cross_pressed=save_func,
             square_pressed=mode_func,
-            triangle_pressed=(
-                gripper_func
-                if isinstance(self.end_effector_pins, GripperPins)
-                else delete_func
-            ),
-            circle_pressed=replay_func,
+            triangle_pressed=delete_func,
+            circle_pressed=gripper_func
+            if isinstance(self.end_effector_pins, GripperPins)
+            else replay_func,
             r1_changed=generate_cycle_joint_func(operator.add),
             l1_changed=generate_cycle_joint_func(operator.sub),
             r2_changed=generate_button2_recording_func(
@@ -423,7 +443,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             try:
                 self.move_joint_relative(movement)
                 if self.mode == MemoryType.RELATIVE and np.abs(np.sum(movement)) > 0:
-                    self.save(MemoryType.RELATIVE, movement, MotionType.JOINT)
+                    self.save(MemoryType.RELATIVE, MotionType.JOINT, movement)
             except ConnectionAbortedError:
                 self.add_feed("Connection aborted", "Recorder")
 

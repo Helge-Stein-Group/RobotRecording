@@ -5,7 +5,9 @@ from recorder import RobotRecorder
 
 
 if __name__ == "__main__":
-    recorder = RobotRecorder(end_effector_pins=GripperPins(1,2))
+    recorder = RobotRecorder(
+        end_effector_pins=GripperPins(13, 12), end_effector_state=0
+    )
     time.sleep(1)
     recorder.start()
 
@@ -20,6 +22,7 @@ if __name__ == "__main__":
         recorder.load_memory,
         recorder.stop,
         recorder.optimize_relative_movement,
+        recorder.replay,
         recorder.set_joint_speed,
         recorder.set_linear_speed,
         recorder.set_joint_acceleration,
