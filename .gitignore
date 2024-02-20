@@ -3,3 +3,4 @@ __pycache__
 .vscode
 .idea
 TCP-IP-4Axis-Python-main
+/src/recordings/*

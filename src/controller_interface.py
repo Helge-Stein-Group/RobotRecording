@@ -53,7 +53,8 @@ class ControllerInterface:
         try:
             self.controller.device._check_device_status()
             return True
-        except pydualsense.DeviceError:
+        except Exception as e:
+            print(e)
             return False
 
     def log_controller(self, msg: str):

@@ -184,6 +184,12 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             end_effector (EndEffectorType): The end effector to be set.
         """
         RobotInterface.set_end_effector(self, end_effector)
+        if end_effector == EndEffectorType.NO_END_EFFECTOR:
+            self.joint_bounds[2][0] = 10
+        elif end_effector == EndEffectorType.GRIPPER:
+            self.joint_bounds[2][0] = 85
+        elif end_effector == EndEffectorType.SUCTION_CUP:
+            self.joint_bounds[2][0] = 45
         self.default_keymap()
         self.set_controls()
 
