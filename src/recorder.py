@@ -4,7 +4,7 @@ import colorsys
 import operator
 import threading
 
-
+from typing import override
 from controller_interface import ControllerInterface
 from robot_interface import RobotInterface
 from utils import *
@@ -26,6 +26,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         joystick_mapping (dict): A dictionary mapping joystick names to joint indices.
         joint_bounds (np.ndarray): The bounds for each joint of the robot.
         active_joint (int): The index of the active joint.
+        end_effector (EndEffectorType): The end effector of the robot.
         end_effector_state (int): The state of the end effector.
         mode (MemoryType): The memory mode of the robot.
         running (bool): A flag indicating if the robot is running.
@@ -33,6 +34,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
     Methods:
         reconnect(): Reconnects the robot.
         add_feed(msg: str, source: str): Adds a feed entry.
+        set_end_effector(end_effector: EndEffectorType): Sets the end effector of the robot.
         save(memory_type, value, motion_type): Saves a memory entry.
         indicate_active_joint(): Indicates the active joint.
         indicate_mode(): Indicates the memory mode.
@@ -59,6 +61,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         joint_bounds: np.ndarray = np.array(
             [[-80, 80], [-125, 125], [85, 245], [-355, 355]]
         ),
+        end_effector: EndEffectorType = EndEffectorType.NO_END_EFFECTOR,
         end_effector_pins: EndEffectorPins = None,
         end_effector_state: int = 0,
     ):
@@ -76,6 +79,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             left_joystick_joint (int, optional): The joint index controlled by the left joystick. Defaults to 0.
             right_joystick_joint (int, optional): The joint index controlled by the right joystick. Defaults to 1.
             joint_bounds (np.ndarray, optional): The bounds for each joint angle. Defaults to np.array([[-80, 80], [-125, 125], [85, 245], [-355, 355]]).
+            end_effector (EndEffectorType, optional): The end effector of the robot. Defaults to EndEffectorType.NO_END_EFFECTOR.
             end_effector_pins (EndEffectorPins, optional): The pins for the end effector. Defaults to None.
             end_effector_state (int, optional): The initial state of the end effector. Defaults to 0.
         """
@@ -105,8 +109,6 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         self.active_joint = number_of_joints // 2
 
-        self.end_effector_state = end_effector_state
-
         self.mode = MemoryType.ABSOLUTE
         self.running = False
 
@@ -117,7 +119,9 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             move_port,
             self.number_of_joints,
             self.add_feed,
+            end_effector,
             end_effector_pins,
+            end_effector_state,
         )
         ControllerInterface.__init__(self, keymap, self.add_feed)
         if self.keymap is None:
@@ -170,6 +174,18 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
             This is the main print method of the application.
         """
         self.feed.append(FeedEntry(datetime.now(), msg, source))
+
+    @override
+    def set_end_effector(self, end_effector: EndEffectorType):
+        """
+        Set the end effector of the robot.
+
+        Args:
+            end_effector (EndEffectorType): The end effector to be set.
+        """
+        RobotInterface.set_end_effector(self, end_effector)
+        self.default_keymap()
+        self.set_controls()
 
     def save(self, memory_type: MemoryType, motion_type: MotionType, value: np.ndarray):
         """
@@ -250,7 +266,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         def gripper_func(state):
             if state:
-                if self.end_effector_state == 0:
+                if self.end_effector_state == 0:  # Opened Gripper
                     self.end_effector_state = 1
                     self.close_gripper()
                     self.save(
@@ -258,13 +274,13 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                         MotionType.GRIPPER,
                         np.array(
                             [
-                                [self.end_effector_pins.power_pin, 0],
-                                [self.end_effector_pins.direction_pin, 0],
-                                [self.end_effector_pins.power_pin, 1],
+                                [self.end_effector_pins.power, 0],
+                                [self.end_effector_pins.direction, 0],
+                                [self.end_effector_pins.power, 1],
                             ]
                         ),
                     )
-                elif self.end_effector_state == 1:
+                elif self.end_effector_state == 1:  # Closed Gripper
                     self.end_effector_state = 0
                     self.open_gripper()
                     self.save(
@@ -272,9 +288,38 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
                         MotionType.GRIPPER,
                         np.array(
                             [
-                                [self.end_effector_pins.power_pin, 0],
-                                [self.end_effector_pins.direction_pin, 1],
-                                [self.end_effector_pins.power_pin, 1],
+                                [self.end_effector_pins.power, 0],
+                                [self.end_effector_pins.direction, 1],
+                                [self.end_effector_pins.power, 1],
+                            ]
+                        ),
+                    )
+
+        def suction_cup_func(state):
+            if state:
+                if self.end_effector_state == 0:  # Not sucking
+                    self.end_effector_state = 1
+                    self.suck()
+                    self.save(
+                        MemoryType.END_EFFECTOR,
+                        MotionType.SUCTION_CUP,
+                        np.array(
+                            [
+                                [self.end_effector_pins.direction, 0],
+                                [self.end_effector_pins.power, 0],
+                            ]
+                        ),
+                    )
+                elif self.end_effector_state == 1:  # Sucking
+                    self.end_effector_state = 0
+                    self.unsuck()
+                    self.save(
+                        MemoryType.END_EFFECTOR,
+                        MotionType.SUCTION_CUP,
+                        np.array(
+                            [
+                                [self.end_effector_pins.direction, 0],
+                                [self.end_effector_pins.power, 1],
                             ]
                         ),
                     )
@@ -314,13 +359,17 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
             return linear_move_func
 
+        end_effector_func = {
+            EndEffectorType.NO_END_EFFECTOR: replay_func,
+            EndEffectorType.GRIPPER: gripper_func,
+            EndEffectorType.SUCTION_CUP: suction_cup_func,
+        }
+
         self.keymap = Keymap(
             cross_pressed=save_func,
             square_pressed=mode_func,
             triangle_pressed=delete_func,
-            circle_pressed=gripper_func
-            if isinstance(self.end_effector_pins, GripperPins)
-            else replay_func,
+            circle_pressed=end_effector_func[self.end_effector],
             r1_changed=generate_cycle_joint_func(operator.add),
             l1_changed=generate_cycle_joint_func(operator.sub),
             r2_changed=generate_button2_recording_func(

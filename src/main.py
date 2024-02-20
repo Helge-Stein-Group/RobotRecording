@@ -1,12 +1,14 @@
 import time
-from utils import GripperPins
+from utils import AirPumpPins, EndEffectorType
 from dashboard import Dashboard
 from recorder import RobotRecorder
 
 
 if __name__ == "__main__":
     recorder = RobotRecorder(
-        end_effector_pins=GripperPins(13, 12), end_effector_state=0
+        end_effector=EndEffectorType.SUCTION_CUP,
+        end_effector_pins=AirPumpPins(13, 12),
+        end_effector_state=0,
     )
     time.sleep(1)
     recorder.start()
@@ -30,5 +32,8 @@ if __name__ == "__main__":
         recorder.is_alive,
         recorder.robot_is_alive,
         recorder.controller_is_alive,
+        recorder.set_end_effector,
+        recorder.set_end_effector_pins,
+        recorder.set_end_effector_state,
     )
     dashboard.run()

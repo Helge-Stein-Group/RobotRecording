@@ -7,9 +7,11 @@ import dash_daq as daq
 import plotly.io as pio
 import dash_bootstrap_components as dbc
 
-from dash import html, dcc, ctx
+from dash import html, dcc, ctx, ALL
 from dash.dash_table import DataTable
 from dash.dependencies import Input, Output, State
+from dataclasses import fields
+from utils import EndEffectorType, pin_mapping, EndEffectorPins
 
 # Ensure dash is not spamming the console
 log = logging.getLogger("werkzeug")
@@ -41,6 +43,9 @@ class Dashboard:
         status_recorder (callable): Function to check the status of the recorder.
         status_robot (callable): Function to check the status of the robot.
         status_controller (callable): Function to check the status of the controller.
+        set_end_effector (callable): Function to set the end effector of the robot.
+        set_end_effector_pins (callable): Function to set the end effector pins of the robot.
+        set_end_effector_state (callable): Function to set the end effector state of the robot.
         app (dash.Dash): The dash app.
 
     Methods:
@@ -79,12 +84,35 @@ class Dashboard:
         controller_status: Returns the controller status for the dashboard.
         controller_status_callback: Registers the controller status callback.
         indicators: Returns the indicators for the dashboard.
+        end_effector_dropdown: Returns the end effector dropdown for the dashboard.
+        end_effector_dropdown_callback: Registers the end effector dropdown callback.
+        end_effector_pins: Returns the end effector pins for the dashboard.
+        end_effector_pins_callback: Registers the end effector pins callback.
+        end_effector_state: Returns the end effector state for the dashboard.
+        end_effector_state_callback: Registers the end effector state callback.
         pose_display: Returns the pose display for the dashboard.
         pose_display_callback: Registers the pose display callback.
         angles_display: Returns the angles display for the dashboard.
         angles_display_callback: Registers the angles display callback.
         memory_table: Returns the memory table for the dashboard.
         memory_table_callback: Registers the memory table callback.
+        feed_table: Returns the feed table for the dashboard.
+        feed_table_callback: Registers the feed table callback.
+        input_group: Returns an input group for the dashboard. (Used for pose and angles)
+        table: Returns a table for the dashboard. (Used for memory and feed)
+        button_callback: Registers a generic button callback that just calls a function on click.
+        indicator: Returns a generic indicator for the dashboard.
+        indicator_callback: Registers a generic indicator callback that updates the value and color of the indicator.
+        slider: Returns a generic slider for the dashboard.
+        slider_callback: Registers a generic slider callback that calls a function on slider change.
+        memory_modal: Returns a generic memory modal for the dashboard.
+        keymap_modal: Returns a keymap modal for the dashboard.
+        control_buttons_callbacks: Registers the control buttons callbacks.
+        slider_callbacks: Registers the slider callbacks.
+        indicator_callbacks: Registers the indicator callbacks.
+        end_effector_callbacks: Registers the end effector callbacks.
+        register_callbacks: Registers all callbacks.
+        run: Runs dash app for the dashboard.
     """
 
     def __init__(
@@ -107,6 +135,9 @@ class Dashboard:
         status_recorder,
         status_robot,
         status_controller,
+        set_end_effector,
+        set_end_effector_pins,
+        set_end_effector_state,
     ):
         """
         Initializes the Dashboard class.
@@ -130,6 +161,9 @@ class Dashboard:
             status_recorder (callable): Function to check the status of the recorder.
             status_robot (callable): Function to check the status of the robot.
             status_controller (callable): Function to check the status of the controller.
+            set_end_effector (callable): Function to set the end effector of the robot.
+            set_end_effector_pins (callable): Function to set the end effector pins of the robot.
+            set_end_effector_state (callable): Function to set the end effector state of the robot.
         """
         self.get_pose = get_pose
         self.get_angles = get_angles
@@ -149,6 +183,9 @@ class Dashboard:
         self.status_recorder = status_recorder
         self.status_robot = status_robot
         self.status_controller = status_controller
+        self.set_end_effector = set_end_effector
+        self.set_end_effector_pins = set_end_effector_pins
+        self.set_end_effector_state = set_end_effector_state
 
         self.app = dash.Dash(
             __name__,
@@ -170,6 +207,21 @@ class Dashboard:
                         *self.control_buttons(),
                         *self.movement_sliders(),
                         *self.indicators(),
+                    ]
+                ),
+                dbc.Row(
+                    [
+                        dbc.Col(self.end_effector_dropdown(), width=2),
+                        dbc.Col(
+                            self.end_effector_pins(),
+                            width=9,
+                            id="end-effector-pins-col",
+                        ),
+                        dbc.Col(
+                            self.end_effector_state(),
+                            width=1,
+                            id="end-effector-state-col",
+                        ),
                     ]
                 ),
                 dbc.Row(
@@ -609,6 +661,142 @@ class Dashboard:
             ),
         ]
 
+    @staticmethod
+    def end_effector_dropdown() -> dbc.Container:
+        """
+        Returns the end effector dropdown for the dashboard.
+        """
+        return dbc.Container(
+            [
+                html.H4("End Effector"),
+                dcc.Dropdown(
+                    id="end-effector-dropdown",
+                    options=[
+                        {
+                            "label": effector.name,
+                            "value": effector.value,
+                        }
+                        for effector in EndEffectorType
+                    ],
+                    value=0,
+                    clearable=False,
+                ),
+            ],
+            fluid=True,
+        )
+
+    def end_effector_dropdown_callback(self):
+        """
+        Registers the end effector dropdown callback.
+        """
+
+        @self.app.callback(
+            Output("end-effector-pins-col", "children"),
+            Output("end-effector-state-col", "children"),
+            Input("end-effector-dropdown", "value"),
+            prevent_initial_call=True,
+        )
+        def update_end_effector(value):
+            """
+            Callback to update the end effector dropdown.
+            """
+            end_effector = EndEffectorType(value)
+            self.set_end_effector(end_effector)
+            return self.end_effector_pins(
+                pin_mapping[end_effector]
+            ), self.end_effector_state(end_effector)
+
+    @staticmethod
+    def end_effector_pins(pins: EndEffectorPins = EndEffectorPins) -> dbc.Row:
+        """
+        Returns the end effector pins for the dashboard.
+        """
+        return dbc.Row(
+            [
+                dbc.Col(
+                    dbc.Input(
+                        id={"type": "end-effector-pin", "index": i},
+                        type="number",
+                        placeholder=pin.name,
+                    )
+                )
+                for i, pin in enumerate(fields(pins))
+            ],
+        )
+
+    def end_effector_pins_callback(self):
+        """
+        Registers the end effector pins callback.
+        """
+
+        @self.app.callback(
+            Output("end-effector-state-col", "width"),
+            Input({"type": "end-effector-pin", "index": ALL}, "value"),
+            prevent_initial_call=True,
+        )
+        def update_end_effector_pins(values):
+            """
+            Callback to update the end effector pins.
+            """
+            self.set_end_effector_pins(values)
+            return dash.no_update
+
+    @staticmethod
+    def end_effector_state(
+        end_effector: EndEffectorType = EndEffectorType.NO_END_EFFECTOR,
+    ) -> dcc.Dropdown:
+        """
+        Returns the end effector state for the dashboard.
+        """
+        if end_effector == EndEffectorType.GRIPPER:
+            options = [
+                {
+                    "label": "Opened",
+                    "value": 0,
+                },
+                {
+                    "label": "Closed",
+                    "value": 1,
+                },
+            ]
+        elif end_effector == EndEffectorType.SUCTION_CUP:
+            options = [
+                {
+                    "label": "On",
+                    "value": 1,
+                },
+                {
+                    "label": "Off",
+                    "value": 0,
+                },
+            ]
+        else:
+            options = []
+        return dcc.Dropdown(
+            id="end-effector-state",
+            options=options,
+            value=0,
+            clearable=False,
+            disabled=not options,
+        )
+
+    def end_effector_state_callback(self):
+        """
+        Registers the end effector state callback.
+        """
+
+        @self.app.callback(
+            Output("end-effector-state", "value"),
+            Input("end-effector-state", "value"),
+            prevent_initial_call=True,
+        )
+        def update_end_effector_state(value):
+            """
+            Callback to update the end effector state.
+            """
+            self.set_end_effector_state(value)
+            return dash.no_update
+
     def pose_display(self) -> dbc.Container:
         """
         Returns the pose display for the dashboard.
@@ -713,6 +901,12 @@ class Dashboard:
                     el["Z/J3"] = ["-"]
                     el["R/J4"] = ["-"]
                     el["End Effector"] = "Open" if el["Value"][1][1] == 1 else "Close"
+                elif el[("Motion Type")] == "SUCTION_CUP":
+                    el["X/J1"] = ["-"]
+                    el["Y/J2"] = ["-"]
+                    el["Z/J3"] = ["-"]
+                    el["R/J4"] = ["-"]
+                    el["End Effector"] = "On" if el["Value"][1][1] == 0 else "Off"
 
                 if not el["Valid"]:
                     data_conditional.append(
@@ -999,6 +1193,14 @@ class Dashboard:
         self.robot_status_callback()
         self.controller_status_callback()
 
+    def end_effector_callbacks(self):
+        """
+        Registers the end effector callbacks.
+        """
+        self.end_effector_dropdown_callback()
+        self.end_effector_pins_callback()
+        self.end_effector_state_callback()
+
     def register_callbacks(self):
         """
         Registers all callbacks.
@@ -1006,6 +1208,8 @@ class Dashboard:
         self.control_buttons_callbacks()
         self.slider_callbacks()
         self.indicator_callbacks()
+
+        self.end_effector_callbacks()
 
         self.pose_display_callback()
         self.angles_display_callback()

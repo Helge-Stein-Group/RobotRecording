@@ -4,7 +4,7 @@ import time
 import threading
 import numpy as np
 
-from utils import MemoryType, MotionType, EndEffectorPins
+from utils import MemoryType, MotionType, EndEffectorPins, EndEffectorType, pin_mapping
 from include.dobot_api import DobotApiDashboard, DobotApiMove
 
 
@@ -18,7 +18,9 @@ class RobotInterface:
         move_port (int): The port number for the move connection.
         number_of_joints (int): The number of joints in the robot.
         print_function (callable): The function used for printing log messages.
-        end_effector_ports (EndEffectorPins): The end effector pins of the robot.
+        end_effector (EndEffectorType): The end effector type of the robot.
+        end_effector_pins (EndEffectorPins): The end effector pins of the robot.
+        end_effector_state (int): The state of the end effector.
 
     Methods:
         __init__: Initializes the RobotInterface object.
@@ -37,6 +39,9 @@ class RobotInterface:
         set_linear_acceleration: Sets the linear acceleration of the robot.
         log_robot: Logs a message with the robot identifier.
         clear_error: Clears the error on the robot.
+        set_end_effector: Sets the end effector of the robot.
+        set_end_effector_pins: Sets the end effector pins of the robot.
+        set_end_effector_state: Sets the state of the end effector.
         nonblocking_move: Performs a non-blocking move operation on the robot.
         extract_metavalues: Extracts the return value and method name from a string.
         extract_error_codes: Extracts the error codes from a string.
@@ -55,7 +60,9 @@ class RobotInterface:
         move_port: int = 30003,
         number_of_joints: int = 4,
         print_function: callable = print,
+        end_effector: EndEffectorType = EndEffectorType.NO_END_EFFECTOR,
         end_effector_pins: EndEffectorPins = None,
+        end_effector_state: int = 0,
     ):
         """
         Initializes the RobotInterface object.
@@ -85,7 +92,9 @@ class RobotInterface:
 
         self.print_function = print_function
 
+        self.end_effector = end_effector
         self.end_effector_pins = end_effector_pins
+        self.end_effector_state = end_effector_state
 
         self.connect_robot()
         self.init_robot()
@@ -177,6 +186,37 @@ class RobotInterface:
             time.sleep(0.5)
             self._dashboard.EnableRobot()
 
+    def set_end_effector(self, end_effector: EndEffectorType):
+        """
+        Sets the end effector of the robot.
+
+        Args:
+            end_effector (EndEffectorType): The end effector type to be set.
+        """
+        self.end_effector = end_effector
+        self.end_effector_pins = pin_mapping[end_effector]
+        self.log_robot(f"Setting end effector to {end_effector.name}")
+
+    def set_end_effector_pins(self, values: list):
+        """
+        Sets the end effector pins of the robot.
+
+        Args:
+            values (list): The end effector pin values to be set.
+        """
+        self.end_effector_pins = pin_mapping[self.end_effector](*values)
+        self.log_robot(f"Setting end effector pins to {values}")
+
+    def set_end_effector_state(self, state: int):
+        """
+        Sets the state of the end effector.
+
+        Args:
+            state (int): The state to be set.
+        """
+        self.end_effector_state = state
+        self.log_robot(f"Setting end effector state to {state}")
+
     def set_digital_output(self, index, value):
         """
         Sets the digital output of the robot.
@@ -186,25 +226,39 @@ class RobotInterface:
             value (int): The value to be set.
         """
         with self.dashboard_lock:
-            self._dashboard.DO(index, value)
+            self._dashboard.DO(int(index), int(value))
 
     def open_gripper(self):
         """
         Opens the gripper.
         """
-        self.set_digital_output(self.end_effector_pins.direction_pin, 1)
-        self.set_digital_output(self.end_effector_pins.power_pin, 0)
+        self.set_digital_output(self.end_effector_pins.direction, 1)
+        self.set_digital_output(self.end_effector_pins.power, 0)
         time.sleep(0.1)
-        self.set_digital_output(self.end_effector_pins.power_pin, 1)
+        self.set_digital_output(self.end_effector_pins.power, 1)
 
     def close_gripper(self):
         """
         Closes the gripper.
         """
-        self.set_digital_output(self.end_effector_pins.direction_pin, 0)
-        self.set_digital_output(self.end_effector_pins.power_pin, 0)
+        self.set_digital_output(self.end_effector_pins.direction, 0)
+        self.set_digital_output(self.end_effector_pins.power, 0)
         time.sleep(0.1)
-        self.set_digital_output(self.end_effector_pins.power_pin, 1)
+        self.set_digital_output(self.end_effector_pins.power, 1)
+
+    def suck(self):
+        """
+        Turns on the suction cup.
+        """
+        self.set_digital_output(self.end_effector_pins.direction, 0)
+        self.set_digital_output(self.end_effector_pins.power, 0)
+
+    def unsuck(self):
+        """
+        Turns off the suction cup.
+        """
+        self.set_digital_output(self.end_effector_pins.direction, 0)
+        self.set_digital_output(self.end_effector_pins.power, 1)
 
     def move_joint_absolute(self, cartesian_coordinates):
         """
@@ -309,7 +363,8 @@ class RobotInterface:
         with self.dashboard_lock:
             self._dashboard.AccL(int(acceleration))
 
-    def extract_metavalues(self, s):
+    @staticmethod
+    def extract_metavalues(s):
         """
         Extracts the return value and method name from the dobot call.
 
@@ -324,7 +379,8 @@ class RobotInterface:
 
         return return_value, method_name
 
-    def extract_error_codes(self, s):
+    @staticmethod
+    def extract_error_codes(s):
         """
         Extracts error codes from the dobot call.
 

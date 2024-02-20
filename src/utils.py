@@ -19,6 +19,7 @@ class MotionType(Enum):
     JOINT = 0
     LINEAR = 1
     GRIPPER = 2
+    SUCTION_CUP = 3
 
 
 @dataclass
@@ -137,6 +138,14 @@ class Keymap:
     dpad_right: callable
 
 
+class EndEffectorType(Enum):
+    """Enumeration for different types of end effectors."""
+
+    NO_END_EFFECTOR = 0
+    SUCTION_CUP = 1
+    GRIPPER = 2
+
+
 @dataclass
 class EndEffectorPins(ABC):
     """Base class representing the pins of the end effector."""
@@ -145,8 +154,16 @@ class EndEffectorPins(ABC):
 
 
 @dataclass
-class GripperPins(EndEffectorPins):
-    """Represents the pins of the gripper."""
+class AirPumpPins(EndEffectorPins):
+    """Represents the pins of the air pump."""
 
-    power_pin: int
-    direction_pin: int
+    power: int
+    direction: int
+
+
+# Map end effector types to their respective pin mappings
+pin_mapping = {
+    EndEffectorType.NO_END_EFFECTOR: None,
+    EndEffectorType.GRIPPER: AirPumpPins,
+    EndEffectorType.SUCTION_CUP: AirPumpPins,
+}
