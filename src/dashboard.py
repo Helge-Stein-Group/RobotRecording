@@ -211,10 +211,11 @@ class Dashboard:
                 ),
                 dbc.Row(
                     [
+                        dbc.Col(html.H4("End Effector"), width=1),
                         dbc.Col(self.end_effector_dropdown(), width=2),
                         dbc.Col(
                             self.end_effector_pins(),
-                            width=9,
+                            width=8,
                             id="end-effector-pins-col",
                         ),
                         dbc.Col(
@@ -222,7 +223,8 @@ class Dashboard:
                             width=1,
                             id="end-effector-state-col",
                         ),
-                    ]
+                    ],
+                    style={"margin-top": "3vh", "margin-bottom": "1vh"},
                 ),
                 dbc.Row(
                     [
@@ -662,27 +664,21 @@ class Dashboard:
         ]
 
     @staticmethod
-    def end_effector_dropdown() -> dbc.Container:
+    def end_effector_dropdown() -> dcc.Dropdown:
         """
         Returns the end effector dropdown for the dashboard.
         """
-        return dbc.Container(
-            [
-                html.H4("End Effector"),
-                dcc.Dropdown(
-                    id="end-effector-dropdown",
-                    options=[
-                        {
-                            "label": effector.name,
-                            "value": effector.value,
-                        }
-                        for effector in EndEffectorType
-                    ],
-                    value=0,
-                    clearable=False,
-                ),
+        return dcc.Dropdown(
+            id="end-effector-dropdown",
+            options=[
+                {
+                    "label": effector.name,
+                    "value": effector.value,
+                }
+                for effector in EndEffectorType
             ],
-            fluid=True,
+            value=0,
+            clearable=False,
         )
 
     def end_effector_dropdown_callback(self):
