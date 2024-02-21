@@ -272,63 +272,75 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
 
         def gripper_func(state):
             if state:
-                if self.end_effector_state == 0:  # Opened Gripper
-                    self.end_effector_state = 1
-                    self.close_gripper()
-                    self.save(
-                        MemoryType.END_EFFECTOR,
-                        MotionType.GRIPPER,
-                        np.array(
-                            [
-                                [self.end_effector_pins.power, 0],
-                                [self.end_effector_pins.direction, 0],
-                                [self.end_effector_pins.power, 1],
-                            ]
-                        ),
-                    )
-                elif self.end_effector_state == 1:  # Closed Gripper
-                    self.end_effector_state = 0
-                    self.open_gripper()
-                    self.save(
-                        MemoryType.END_EFFECTOR,
-                        MotionType.GRIPPER,
-                        np.array(
-                            [
-                                [self.end_effector_pins.power, 0],
-                                [self.end_effector_pins.direction, 1],
-                                [self.end_effector_pins.power, 1],
-                            ]
-                        ),
-                    )
+                if all(
+                    value is not None
+                    for value in self.end_effector_pins.__dict__.values()
+                ):
+                    if self.end_effector_state == 0:  # Opened Gripper
+                        self.end_effector_state = 1
+                        self.close_gripper()
+                        self.save(
+                            MemoryType.END_EFFECTOR,
+                            MotionType.GRIPPER,
+                            np.array(
+                                [
+                                    [self.end_effector_pins.power, 0],
+                                    [self.end_effector_pins.direction, 0],
+                                    [self.end_effector_pins.power, 1],
+                                ]
+                            ),
+                        )
+                    elif self.end_effector_state == 1:  # Closed Gripper
+                        self.end_effector_state = 0
+                        self.open_gripper()
+                        self.save(
+                            MemoryType.END_EFFECTOR,
+                            MotionType.GRIPPER,
+                            np.array(
+                                [
+                                    [self.end_effector_pins.power, 0],
+                                    [self.end_effector_pins.direction, 1],
+                                    [self.end_effector_pins.power, 1],
+                                ]
+                            ),
+                        )
+                else:
+                    self.add_feed("Gripper pins not set", "Recorder")
 
         def suction_cup_func(state):
             if state:
-                if self.end_effector_state == 0:  # Not sucking
-                    self.end_effector_state = 1
-                    self.suck()
-                    self.save(
-                        MemoryType.END_EFFECTOR,
-                        MotionType.SUCTION_CUP,
-                        np.array(
-                            [
-                                [self.end_effector_pins.direction, 0],
-                                [self.end_effector_pins.power, 0],
-                            ]
-                        ),
-                    )
-                elif self.end_effector_state == 1:  # Sucking
-                    self.end_effector_state = 0
-                    self.unsuck()
-                    self.save(
-                        MemoryType.END_EFFECTOR,
-                        MotionType.SUCTION_CUP,
-                        np.array(
-                            [
-                                [self.end_effector_pins.direction, 0],
-                                [self.end_effector_pins.power, 1],
-                            ]
-                        ),
-                    )
+                if all(
+                    value is not None
+                    for value in self.end_effector_pins.__dict__.values()
+                ):
+                    if self.end_effector_state == 0:  # Not sucking
+                        self.end_effector_state = 1
+                        self.suck()
+                        self.save(
+                            MemoryType.END_EFFECTOR,
+                            MotionType.SUCTION_CUP,
+                            np.array(
+                                [
+                                    [self.end_effector_pins.direction, 0],
+                                    [self.end_effector_pins.power, 0],
+                                ]
+                            ),
+                        )
+                    elif self.end_effector_state == 1:  # Sucking
+                        self.end_effector_state = 0
+                        self.unsuck()
+                        self.save(
+                            MemoryType.END_EFFECTOR,
+                            MotionType.SUCTION_CUP,
+                            np.array(
+                                [
+                                    [self.end_effector_pins.direction, 0],
+                                    [self.end_effector_pins.power, 1],
+                                ]
+                            ),
+                        )
+                else:
+                    self.add_feed("Suction cup pins not set", "Recorder")
 
         def generate_cycle_joint_func(op):
             def cycle_joint_func(state):
@@ -448,7 +460,7 @@ class RobotRecorder(threading.Thread, RobotInterface, ControllerInterface):
         self.dump_memory()
 
         self.close_robot()
-        self.controller.close()
+        # self.controller.close()
         time.sleep(1)
 
     def bound_movement(self, movement: list) -> list:
