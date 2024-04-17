@@ -161,6 +161,8 @@ class RobotInterface:
         Closes the robot connection. (Thread-safe)
         """
         with self.dashboard_lock:
+            self._dashboard.DisableRobot() 
+            time.sleep(0.5)
             self._dashboard.close()
         self._move.close()
 
